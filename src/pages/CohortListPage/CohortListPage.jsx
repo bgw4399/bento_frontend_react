@@ -204,7 +204,7 @@ export default function CohortListPage() {
               </button>
 
               <Link
-                to="/new"
+                to="/cohort-definition"
                 className="px-3 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-600 rounded-md hover:bg-blue-50"
               >
                 New Cohort
