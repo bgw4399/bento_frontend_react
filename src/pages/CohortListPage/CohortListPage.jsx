@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Footer from '../components/Footer.jsx';
-import LoadingComponent from '../components/LoadingComponent.jsx';
+import Footer from '../../components/Footer.jsx';
+import LoadingComponent from '../../components/LoadingComponent.jsx';
 // Vite 환경 변수 사용법
 const API_URI = import.meta.env.VITE_PUBLIC_API_URI;
 

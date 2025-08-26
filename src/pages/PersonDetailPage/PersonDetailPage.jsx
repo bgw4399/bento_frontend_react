@@ -2,24 +2,24 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import * as d3 from 'd3';
 
-import { transformDonutChartToTableData } from '../components/Charts/DonutChart/donutChartTransformer.js';
+import { transformDonutChartToTableData } from '../../components/Charts/DonutChart/donutChartTransformer.js';
 
 // Component Imports
-import LoadingComponent from '../components/LoadingComponent';
-import Footer from '../components/Footer';
-import ChartCard from '../components/ChartCard';
-import DataTable from '../components/DataTable';
-import SingleDonutChartWrapper from '../components/Charts/DonutChart/SingleDonutChartWrapper';
-import BarChartWrapper from '../components/Charts/BarChart/BarChartWrapper';
-import BarChartTableView from '../components/Charts/BarChart/BarChartTableView';
-import CDMInfo from '../components/Table/CDMInfo';
-import Condition from '../components/Table/Condition';
-import Drug from '../components/Table/Drug';
-import Measurement from '../components/Table/Measurement';
-import Observation from '../components/Table/Observation';
-import ProcedureOccurrence from '../components/Table/ProcedureOccurrence';
-import Specimen from '../components/Table/Specimen';
-import BioSignal from '../components/Table/BioSignal';
+import LoadingComponent from '../../components/LoadingComponent.jsx';
+import Footer from '../../components/Footer.jsx';
+import ChartCard from '../../components/ChartCard.jsx';
+import DataTable from '../../components/DataTable.jsx';
+import SingleDonutChartWrapper from '../../components/Charts/DonutChart/SingleDonutChartWrapper.jsx';
+import BarChartWrapper from '../../components/Charts/BarChart/BarChartWrapper.jsx';
+import BarChartTableView from '../../components/Charts/BarChart/BarChartTableView.jsx';
+import CDMInfo from '../../components/Table/CDMInfo.jsx';
+import Condition from '../../components/Table/Condition.jsx';
+import Drug from '../../components/Table/Drug.jsx';
+import Measurement from '../../components/Table/Measurement.jsx';
+import Observation from '../../components/Table/Observation.jsx';
+import ProcedureOccurrence from '../../components/Table/ProcedureOccurrence.jsx';
+import Specimen from '../../components/Table/Specimen.jsx';
+import BioSignal from '../../components/Table/BioSignal.jsx';
 
 const API_URI = import.meta.env.VITE_PUBLIC_API_URI;
 
