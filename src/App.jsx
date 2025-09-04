@@ -16,11 +16,11 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} /> 
+        <Route path="login" element={<LoginPage />} />
+        <Route path="register" element={<RegisterPage />} />
         <Route index element={<HomePage />} />
         <Route path="cohort" element={<CohortListPage />} />
-        <Route path="/cohort-definition" element={<CohortDefinitionPage />} />
+        <Route path="cohort-definition" element={<CohortDefinitionPage />} />
 
         <Route path="person" element={<PersonLayout />}>
           <Route index element={<PersonSearchPage />} />
