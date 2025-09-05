@@ -851,7 +851,7 @@ export default function CohortDefinitionPage() {
 
     // --- Part 5/6: render - sidebar & header ---
     return (
-        <div className="flex bg-slate-200 h-screen">
+        <div className="flex bg-slate-200 h-screen overflow-hidden">
             {/* 좌측 사이드 바 */}
             <aside className="fixed h-full left-0 w-72 bg-white border-r border-slate-200 overflow-y-auto z-50">
                 <CategoryTree />

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, {useEffect} from 'react';
+import {Routes, Route, useLocation} from 'react-router-dom';
 
 import Layout from './components/Layout';
 import PersonLayout from './components/PersonLayout';
@@ -13,6 +13,18 @@ import RegisterPage from './pages/RegisterPage/RegisterPage.jsx'
 import CohortDefinitionPage from "./pages/CohortDefinitionPage/CohortDefinitionPage.jsx";
 
 function App() {
+
+  const location = useLocation();
+
+  // 코호트 정의 페이지에서만 스크롤 제거
+  useEffect(() => {
+    if (location.pathname === '/cohort-definition') {
+      document.body.style.overflowY = 'hidden';
+    } else {
+      document.body.style.overflowY = '';
+    }
+  }, [location.pathname]);
+
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
