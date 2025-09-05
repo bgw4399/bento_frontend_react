@@ -132,6 +132,14 @@ export default function DateTimeField({
         [hasError]
     );
 
+    // 초기화 함수
+    const handleReset = () => {
+        setStartDate("");
+        setStartTime("");
+        setEndDate("");
+        setEndTime("");
+    };
+
     return (
         <div className="px-6 pb-6 space-y-4">
             <div className="space-y-4">
@@ -198,25 +206,33 @@ export default function DateTimeField({
 
             {/* 현재 설정된 조건 미리보기 */}
             {(startDate || startTime || endDate || endTime) && !hasError && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
                     <div className="text-sm text-blue-800">
                         <span className="font-medium">설정된 조건:</span>
                         <span className="ml-2">
-              {startDate && startTime && endDate && endTime ? (
-                  <>
-                      <strong>{startDate} {startTime}</strong> ~ <strong>{endDate} {endTime}</strong>
-                  </>
-              ) : startDate || startTime ? (
-                  <>
-                      <strong>{startDate || ""} {startTime || ""}</strong> 이후
-                  </>
-              ) : (
-                  <>
-                      <strong>{endDate || ""} {endTime || ""}</strong> 이전
-                  </>
-              )}
-            </span>
+                          {startDate && startTime && endDate && endTime ? (
+                              <>
+                                  <strong>{startDate} {startTime}</strong> ~ <strong>{endDate} {endTime}</strong>
+                              </>
+                          ) : startDate || startTime ? (
+                              <>
+                                  <strong>{startDate || ""} {startTime || ""}</strong> 이후
+                              </>
+                          ) : (
+                              <>
+                                  <strong>{endDate || ""} {endTime || ""}</strong> 이전
+                              </>
+                          )}
+                        </span>
                     </div>
+                    {/* 초기화 버튼 */}
+                    <button
+                        onClick={handleReset}
+                        className="px-3 py-1 text-sm text-blue-600 bg-white border border-blue-300 rounded-md hover:bg-blue-100"
+                    >
+                        초기화
+                    </button>
+
                 </div>
             )}
         </div>

@@ -185,6 +185,14 @@ export default function RangeField({
 
     const selectClass = inputClass + " text-sm";
 
+    // 초기화 함수
+    const handleReset = () => {
+        setMinValue("");
+        setMinOperator("");
+        setMaxValue("");
+        setMinOperator("");
+    };
+
     return (
         <div className="px-6 pb-6 space-y-4">
             <div className="space-y-4">
@@ -268,30 +276,38 @@ export default function RangeField({
 
             {/* 현재 설정된 조건 미리보기 */}
             {(minValue !== "" || maxValue !== "") && !hasError && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
                     <div className="text-sm text-blue-800">
                         <span className="font-medium">설정된 조건:</span>
                         <span className="ml-2">
-              {minValue !== "" && maxValue !== "" ? (
-                  <>
-                      <strong>{minValue}</strong>{" "}
-                      {minOperatorOptions.find((o) => o.value === minOperator)?.label} ~{" "}
-                      <strong>{maxValue}</strong>{" "}
-                      {maxOperatorOptions.find((o) => o.value === maxOperator)?.label}
-                  </>
-              ) : minValue !== "" ? (
-                  <>
-                      <strong>{minValue}</strong>{" "}
-                      {minOperatorOptions.find((o) => o.value === minOperator)?.label}
-                  </>
-              ) : (
-                  <>
-                      <strong>{maxValue}</strong>{" "}
-                      {maxOperatorOptions.find((o) => o.value === maxOperator)?.label}
-                  </>
-              )}
-            </span>
+                          {minValue !== "" && maxValue !== "" ? (
+                              <>
+                                  <strong>{minValue}</strong>{" "}
+                                  {minOperatorOptions.find((o) => o.value === minOperator)?.label} ~{" "}
+                                  <strong>{maxValue}</strong>{" "}
+                                  {maxOperatorOptions.find((o) => o.value === maxOperator)?.label}
+                              </>
+                          ) : minValue !== "" ? (
+                              <>
+                                  <strong>{minValue}</strong>{" "}
+                                  {minOperatorOptions.find((o) => o.value === minOperator)?.label}
+                              </>
+                          ) : (
+                              <>
+                                  <strong>{maxValue}</strong>{" "}
+                                  {maxOperatorOptions.find((o) => o.value === maxOperator)?.label}
+                              </>
+                          )}
+                        </span>
                     </div>
+
+                    {/* 초기화 버튼 */}
+                    <button
+                        onClick={handleReset}
+                        className="px-3 py-1 text-sm text-blue-600 bg-white border border-blue-300 rounded-md hover:bg-blue-100"
+                    >
+                        초기화
+                    </button>
                 </div>
             )}
         </div>
