@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Footer from '../components/Footer.jsx';
-import LoadingComponent from '../components/LoadingComponent.jsx';
+import Footer from '../../components/Footer.jsx';
+import LoadingComponent from '../../components/LoadingComponent.jsx';
 // Vite 환경 변수 사용법
 const API_URI = import.meta.env.VITE_PUBLIC_API_URI;
 
@@ -204,7 +204,7 @@ export default function CohortListPage() {
               </button>
 
               <Link
-                to="/new"
+                to="/cohort-definition"
                 className="px-3 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-600 rounded-md hover:bg-blue-50"
               >
                 New Cohort

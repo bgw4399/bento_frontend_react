@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ORGANIZATION_AFFILIATIONS } from '../constants';
+import { ORGANIZATION_AFFILIATIONS } from '../../constants.js';
 
 export default function RegisterPage() {
     const [formData, setFormData] = useState({

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 // Footer 컴포넌트의 경로는 실제 위치에 맞게 조정해야 할 수 있습니다.
-import Footer from '../components/Footer';
+import Footer from '../../components/Footer.jsx';
 
 export default function HomePage() {
   return (

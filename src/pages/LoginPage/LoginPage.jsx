@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Footer from '../components/Footer'; // Footer 컴포넌트 경로
+import Footer from '../../components/Footer.jsx'; // Footer 컴포넌트 경로
 
 export default function LoginPage() {
     // Svelte의 let 변수 -> React의 useState Hook
