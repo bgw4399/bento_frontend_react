@@ -39,7 +39,7 @@ export default function SearchField({
                 },
             };
 
-            const res = await fetch(`${PUBLIC_API_URI}/text-search`, {
+            const res = await fetch(`${PUBLIC_API_URI}/api/text-search`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
