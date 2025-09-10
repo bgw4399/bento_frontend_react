@@ -71,28 +71,28 @@ export default function FieldModal({
 
                 {/* 실제 입력 UI */}
                 <div className="flex-1 overflow-hidden px-6 py-6">
-                    {fieldData.fieldType === "lookup" ? (
+                    {fieldData.fieldType === "Lookup" ? (
                         <LookupField
                             fieldName={fieldData.fieldName}
                             tableName={fieldData.tableName}
                             existingData={existingData}
                             onSelectionChange={handleSelectionChange}
                         />
-                    ) : fieldData.fieldType === "date" ? (
+                    ) : fieldData.fieldType === "Date" ? (
                         <DateField
                             fieldName={fieldData.fieldName}
                             tableName={fieldData.tableName}
                             existingData={existingData}
                             onSelectionChange={handleSelectionChange}
                         />
-                    ) : fieldData.fieldType === "datetime" ? (
+                    ) : fieldData.fieldType === "Datetime" ? (
                         <DateTimeField
                             fieldName={fieldData.fieldName}
                             tableName={fieldData.tableName}
                             existingData={existingData}
                             onSelectionChange={handleSelectionChange}
                         />
-                    ) : fieldData.fieldType === "range_int" || fieldData.fieldType === "range_float" ? (
+                    ) : fieldData.fieldType === "Range_Integer" || fieldData.fieldType === "Range_Float" ? (
                         <RangeField
                             fieldName={fieldData.fieldName}
                             tableName={fieldData.tableName}
@@ -100,7 +100,7 @@ export default function FieldModal({
                             existingData={existingData}
                             onSelectionChange={handleSelectionChange}
                         />
-                    ) : fieldData.fieldType === "search" ? (
+                    ) : fieldData.fieldType === "Search" ? (
                         <SearchField
                             fieldName={fieldData.fieldName}
                             tableName={fieldData.tableName}
