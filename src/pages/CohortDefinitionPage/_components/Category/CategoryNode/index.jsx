@@ -102,7 +102,7 @@ export default function CategoryNode({
               {/* 컬럼타입 아이콘 */}
               {cat.type && (
                   <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                      {cat.type === "Select" ? (
+                      {cat.type === "select" ? (
                           <svg
                               className="w-3 h-3 text-gray-400"
                               fill="none"
@@ -114,7 +114,7 @@ export default function CategoryNode({
                               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth="2" />
                               <path d="M9 12l2 2 4-4" strokeWidth="2" />
                           </svg>
-                      ) : cat.type === "Date" || cat.type === "Datetime" ? (
+                      ) : cat.type === "date" || cat.type === "datetime" ? (
                           <svg
                               className="w-3 h-3 text-gray-400"
                               fill="none"
@@ -128,7 +128,7 @@ export default function CategoryNode({
                               <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2" />
                               <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2" />
                           </svg>
-                      ) : cat.type === "Upload" ? (
+                      ) : cat.type === "upload" ? (
                           <svg
                               className="w-3 h-3 text-gray-400"
                               fill="none"
@@ -150,7 +150,7 @@ export default function CategoryNode({
                                   d="M12 8v4m0 0l-2-2m2 2l2-2"
                               />
                           </svg>
-                      ) : cat.type === "Lookup" ? (
+                      ) : cat.type === "lookup" ? (
                           <svg
                               className="w-3 h-3 text-gray-400"
                               fill="none"
@@ -164,7 +164,7 @@ export default function CategoryNode({
                               <line x1="9" y1="3" x2="9" y2="21" strokeWidth="2" />
                               <line x1="15" y1="3" x2="15" y2="21" strokeWidth="2" />
                           </svg>
-                      ) : cat.type.includes("Range") ? (
+                      ) : cat.type === "range" ? (
                           <svg
                               className="w-3 h-3 text-gray-400"
                               fill="none"
