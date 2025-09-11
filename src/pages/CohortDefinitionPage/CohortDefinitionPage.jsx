@@ -3,8 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import CategoryTree from "./_components/Category/CategoryTree";
 import FieldModal from "./_components/FieldModal";
 
-// Next.js라면 환경변수: NEXT_PUBLIC_API_URI
-const PUBLIC_API_URI = import.meta.env.VITE_PUBLIC_API_URI;
+const API_BASE = import.meta.env.VITE_PUBLIC_API_URI;
 
 // className 조건부 조합
 function cx(...classes) {
@@ -777,12 +776,12 @@ export default function CohortDefinitionPage() {
         try {
             const requestData = buildApiRequestData();
 
-            if (!PUBLIC_API_URI) {
+            if (!API_BASE) {
                 alert("환경변수 NEXT_PUBLIC_API_URI 가 설정되어 있지 않습니다.");
                 return;
             }
 
-            const response = await fetch(`${PUBLIC_API_URI}/cohort`, {
+            const response = await fetch(`${API_BASE}/api/cohort`, {
                 method: "POST",
                 headers: { accept: "application/json", "Content-Type": "application/json" },
                 body: JSON.stringify(requestData),
@@ -824,13 +823,13 @@ export default function CohortDefinitionPage() {
         setCohortNameError("");
 
         try {
-            if (!PUBLIC_API_URI) {
+            if (!API_BASE) {
                 setCohortNameChecked(true);
                 setCohortNameError("API URI 미설정");
                 return;
             }
             const requestBody = { cohortName: cohortName.trim() };
-            const res = await fetch(`${PUBLIC_API_URI}/cohort/check`, {
+            const res = await fetch(`${API_BASE}/api/cohort/check`, {
                 method: "POST",
                 headers: { accept: "*/*", "Content-Type": "application/json" },
                 body: JSON.stringify(requestBody),

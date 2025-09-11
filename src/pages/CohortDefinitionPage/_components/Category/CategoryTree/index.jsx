@@ -1,23 +1,27 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, {useCallback, useEffect, useMemo, useState} from "react";
 import CategoryNode from "../CategoryNode/index.jsx";
-import {categories} from "../../../../../data/categories.js";
+import {getCategories} from "../../../../../api/cohort-definition/categories.js";
 
 export default function CategoryTree() {
-    // 초기 expanded 상태 구성
-    const [expanded, setExpanded] = useState(() => {
-        const init = {};
-        for (const cat of categories) {
-            init[cat.table] = false;
-            if (cat.columns) {
-                for (const child of cat.columns) {
-                    if (child.columns) init[child.name] = true;
-                }
-            }
-        }
-        return init;
-    });
-
+    const [categories, setCategories] = useState([]);
     const [search, setSearch] = useState("");
+    const [expanded, setExpanded] = useState({});
+
+    // category 불러오기
+    useEffect(() => {
+        const getData = async () => {
+            const data = await getCategories();
+            setCategories(data);
+
+            const initExpanded = {};
+            for (const cat of data) {
+                initExpanded[cat.table] = false;
+            }
+            setExpanded(initExpanded);
+        };
+
+        getData();
+    }, []);
 
     const toggle = useCallback((key) => {
         setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -76,7 +80,7 @@ export default function CategoryTree() {
 
     const filteredCategories = useMemo(
         () => filterTree(categories, search),
-        [filterTree, search]
+        [categories, filterTree, search]
     );
 
     // 검색 중이면 자동 펼침 상태 구성

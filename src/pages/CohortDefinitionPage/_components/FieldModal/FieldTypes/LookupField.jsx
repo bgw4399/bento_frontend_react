@@ -72,7 +72,7 @@ export default function LookupField({
                     limit: pageSize,
                 };
 
-                const res = await fetch(`${API_BASE}/concept/search`, {
+                const res = await fetch(`${API_BASE}/api/concept/search`, {
                     method: "POST",
                     headers: {
                         accept: "application/json",
