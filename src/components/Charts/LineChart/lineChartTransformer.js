@@ -5,22 +5,22 @@ LineChart 데이터를 DataTable 형식으로 변환
  */
 
 export function transformLineChartToTableData(lineChartData) {
-    const labels = [...new Set(lineChartData.map(d => d.label))];
-    const series = [...new Set(lineChartData.map(d => d.series))];
-    const headers = ["Cohort", ...labels];
-    const rows = series.map(seriesName => {
-        const row = { Cohort: seriesName };
-        labels.forEach(label => {
-            const dataPoint = lineChartData.find(
-                d => d.label === label && d.series === seriesName
-            );
-            row[label] = dataPoint ? dataPoint.value : 0;
-        });
-        
-        return row;
+  const labels = [...new Set(lineChartData.map((d) => d.label))];
+  const series = [...new Set(lineChartData.map((d) => d.series))];
+  const headers = ['Cohort', ...labels];
+  const rows = series.map((seriesName) => {
+    const row = { Cohort: seriesName };
+    labels.forEach((label) => {
+      const dataPoint = lineChartData.find(
+        (d) => d.label === label && d.series === seriesName,
+      );
+      row[label] = dataPoint ? dataPoint.value : 0;
     });
-    return {
-        headers,
-        rows
-    };
-} 
+
+    return row;
+  });
+  return {
+    headers,
+    rows,
+  };
+}

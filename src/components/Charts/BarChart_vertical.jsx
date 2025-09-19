@@ -10,21 +10,28 @@ export default function BarChartVertical({ data = [] }) {
   const margin = { top: 20, right: 30, bottom: 40, left: 40 };
 
   const { xScale, yScale } = useMemo(() => {
-    const x = d3.scaleBand()
-      .domain(data.map(d => d.label))
+    const x = d3
+      .scaleBand()
+      .domain(data.map((d) => d.label))
       .range([margin.left, width - margin.right])
       .padding(0.1);
 
-    const y = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d.value)])
+    const y = d3
+      .scaleLinear()
+      .domain([0, d3.max(data, (d) => d.value)])
       .nice()
       .range([height - margin.bottom, margin.top]);
-      
+
     return { xScale: x, yScale: y };
   }, [data]);
 
   return (
-    <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
+    <svg
+      width="100%"
+      height="100%"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
+    >
       <g fill="steelblue">
         {data.map((d, i) => (
           <React.Fragment key={d.label}>
@@ -38,9 +45,11 @@ export default function BarChartVertical({ data = [] }) {
               ry="5"
               onMouseEnter={() => setHoveredBar(d)}
               onMouseLeave={() => setHoveredBar(null)}
-              style={{ animation: `slideUp ${300 + i * 100}ms cubic-bezier(0.4, 0, 0.2, 1) forwards` }}
+              style={{
+                animation: `slideUp ${300 + i * 100}ms cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+              }}
             />
-            
+
             {/* 호버 시 값 표시 */}
             {hoveredBar === d && (
               <text
@@ -57,7 +66,7 @@ export default function BarChartVertical({ data = [] }) {
       </g>
 
       <g transform={`translate(0,${height - margin.bottom})`}>
-        {data.map(d => (
+        {data.map((d) => (
           <text
             key={d.label}
             x={xScale(d.label) + xScale.bandwidth() / 2}
@@ -71,12 +80,12 @@ export default function BarChartVertical({ data = [] }) {
       </g>
 
       <g transform={`translate(${margin.left},0)`}>
-        {yScale.ticks(5).map(tick => (
-          <text 
+        {yScale.ticks(5).map((tick) => (
+          <text
             key={tick}
-            x="-10" 
-            y={yScale(tick)} 
-            textAnchor="end" 
+            x="-10"
+            y={yScale(tick)}
+            textAnchor="end"
             alignmentBaseline="middle"
             className="axis-label"
           >

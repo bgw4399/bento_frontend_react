@@ -1,5 +1,5 @@
-import React, {useEffect} from 'react';
-import {Routes, Route, useLocation} from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 
 import Layout from './components/Layout';
 import PersonLayout from './components/PersonLayout';
@@ -9,11 +9,10 @@ import CohortListPage from './pages/CohortListPage/CohortListPage.jsx';
 import PersonSearchPage from './pages/PersonSearchPage/PersonSearchPage.jsx';
 import PersonDetailPage from './pages/PersonDetailPage/PersonDetailPage.jsx';
 import LoginPage from './pages/LoginPage/LoginPage.jsx';
-import RegisterPage from './pages/RegisterPage/RegisterPage.jsx'
-import CohortDefinitionPage from "./pages/CohortDefinitionPage/CohortDefinitionPage.jsx";
+import RegisterPage from './pages/RegisterPage/RegisterPage.jsx';
+import CohortDefinitionPage from './pages/CohortDefinitionPage/CohortDefinitionPage.jsx';
 
 function App() {
-
   const location = useLocation();
 
   // 코호트 정의 페이지에서만 스크롤 제거
@@ -39,10 +38,7 @@ function App() {
 
           {/* 2. 주석 해제하여 상세 페이지 경로 활성화 */}
           <Route path=":personId" element={<PersonDetailPage />} />
-
-
         </Route>
-
       </Route>
     </Routes>
   );

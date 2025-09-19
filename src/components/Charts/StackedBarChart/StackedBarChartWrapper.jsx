@@ -1,10 +1,19 @@
 import React, { useState, useRef } from 'react';
 import StackedBarChart from './StackedBarChart.jsx';
 
-export default function StackedBarChartWrapper({ data, cohortColorMap, cohortTotalCounts }) {
+export default function StackedBarChartWrapper({
+  data,
+  cohortColorMap,
+  cohortTotalCounts,
+}) {
   const { domainKey, transformedData, top10ItemNames, orderedCohorts } = data;
 
-  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, content: '' });
+  const [tooltip, setTooltip] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    content: '',
+  });
   const containerRef = useRef(null);
 
   const handleMouseOver = (event, d, cohort) => {
@@ -26,7 +35,6 @@ export default function StackedBarChartWrapper({ data, cohortColorMap, cohortTot
         </div>
       `;
 
-
     const containerRect = containerRef.current.getBoundingClientRect();
     const tooltipX = event.clientX - containerRect.left + 15;
     const tooltipY = event.clientY - containerRect.top;
@@ -35,11 +43,11 @@ export default function StackedBarChartWrapper({ data, cohortColorMap, cohortTot
   };
 
   const handleMouseOut = () => {
-    setTooltip(prev => ({ ...prev, visible: false }));
+    setTooltip((prev) => ({ ...prev, visible: false }));
   };
 
   return (
-    <div className="relative w-full h-full" ref={containerRef}>
+    <div className="relative h-full w-full" ref={containerRef}>
       <StackedBarChart
         stackData={transformedData}
         itemNames={top10ItemNames}
@@ -51,7 +59,7 @@ export default function StackedBarChartWrapper({ data, cohortColorMap, cohortTot
       />
       {tooltip.visible && (
         <div
-          className="absolute bg-white/95 shadow-sm rounded-md border border-gray-100 z-50 pointer-events-none transition-all duration-75 backdrop-blur-sm"
+          className="pointer-events-none absolute z-50 rounded-md border border-gray-100 bg-white/95 shadow-sm backdrop-blur-sm transition-all duration-75"
           style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}
           dangerouslySetInnerHTML={{ __html: tooltip.content }}
         />

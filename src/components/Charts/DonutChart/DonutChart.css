@@ -1,5 +1,27 @@
-.chart-container { display: flex; flex-direction: column; align-items: center; position: relative; }
-.chart-inner path { stroke: white; stroke-width: 2px; stroke-linejoin: round; transition: all 0.3s ease; }
-.slice { cursor: pointer; outline: none; }
-.slice:hover { filter: brightness(1.1); }
-.no-data-container { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.75rem; color: #6b7280; }
+.chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+.chart-inner path {
+  stroke: white;
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  transition: all 0.3s ease;
+}
+.slice {
+  cursor: pointer;
+  outline: none;
+}
+.slice:hover {
+  filter: brightness(1.1);
+}
+.no-data-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+}

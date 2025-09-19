@@ -1,11 +1,10 @@
 /* Svelte의 :global(.box:hover) -> 일반 CSS로 변환 */
 .box:hover {
-    filter: brightness(1.1);
-    cursor: pointer;
-  }
-  
-  .outlier:hover {
-    cursor: pointer;
-    /* r, stroke-width 등의 동적 효과는 D3의 .on("mouseover") 이벤트 핸들러가 처리합니다. */
-  }
-  
+  filter: brightness(1.1);
+  cursor: pointer;
+}
+
+.outlier:hover {
+  cursor: pointer;
+  /* r, stroke-width 등의 동적 효과는 D3의 .on("mouseover") 이벤트 핸들러가 처리합니다. */
+}
