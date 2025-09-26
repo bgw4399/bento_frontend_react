@@ -624,7 +624,7 @@ export default function CohortDefinitionPage() {
       dose_era: {
         drug_concept_id: 'conceptset',
         dose_era_start_age: 'startAge',
-        dose_era_end_age: 'EndAge',
+        dose_era_end_age: 'endAge',
         dose_era_gender: 'gender',
         dose_era_start_date: 'startDate',
         dose_era_end_date: 'endDate',
