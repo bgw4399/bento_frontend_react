@@ -175,24 +175,24 @@ export default function CohortDefinitionPage() {
   const nextRowIdRef = useRef(1);
   const nextContainerIdRef = useRef(2);
 
-    function mapLogicToOperator(logic) {
-        switch (logic) {
-            case 'AND': return 'and';
-            case 'OR':  return 'or';
-            case 'NOT': return 'not';
-            default:    return 'and'; // fallback (원하면 null 반환 등으로 바꿔도 됨)
-        }
+  function mapLogicToOperator(logic) {
+    switch (logic) {
+      case 'AND':
+        return 'and';
+      case 'OR':
+        return 'or';
+      case 'NOT':
+        return 'not';
+      default:
+        return 'and'; // fallback (원하면 null 반환 등으로 바꿔도 됨)
     }
+  }
 
-    function mapRowTypeToOperator(rowType) {
-        return rowType === 'NOT' ? 'not'
-            : rowType === 'AND' ? 'and'
-                : undefined; // initial은 undefined
-    }
+  function mapRowTypeToOperator(rowType) {
+    return rowType === 'NOT' ? 'not' : rowType === 'AND' ? 'and' : undefined; // initial은 undefined
+  }
 
-
-
-    // 편집 인풋 포커스
+  // 편집 인풋 포커스
   useEffect(() => {
     if (editingRowId != null) {
       const el = document.querySelector(
@@ -822,75 +822,76 @@ export default function CohortDefinitionPage() {
     return filter;
   }
 
-    function buildApiRequestData() {
-        const requestData = {
-            name: cohortName,
-            description: `코호트: ${cohortName}`,
-            cohortDefinition: {
-                initialGroup: { containers: [] },
-                comparisonGroup: { containers: [] },
-            },
-            temporary: false,
-        };
+  function buildApiRequestData() {
+    const requestData = {
+      name: cohortName,
+      description: `코호트: ${cohortName}`,
+      cohortDefinition: {
+        initialGroup: { containers: [] },
+        comparisonGroup: { containers: [] },
+      },
+      temporary: false,
+    };
 
-        rows.forEach((row) => {
-            // 공통: 컨테이너 -> filters 직렬화 (컨테이너 간 operator 포함)
-            const serializeContainersWithOperators = () => {
-                // row.containers 를 돌면서 비어있지 않은 것만 모으고
-                const concrete = row.containers.filter((c) => !c.isEmpty && c.items.length > 0);
+    rows.forEach((row) => {
+      // 공통: 컨테이너 -> filters 직렬화 (컨테이너 간 operator 포함)
+      const serializeContainersWithOperators = () => {
+        // row.containers 를 돌면서 비어있지 않은 것만 모으고
+        const concrete = row.containers.filter(
+          (c) => !c.isEmpty && c.items.length > 0,
+        );
 
-                // 각 컨테이너를 필터 오브젝트로 변환
-                const filters = concrete.map((c, idx, arr) => {
-                    const containerFilter: Record<string, any> = { type: c.tableName };
-                    // item들을 하나의 컨테이너 필터에 병합
-                    c.items.forEach((item) => {
-                        const cond = buildFilterCondition(item);
-                        Object.keys(cond).forEach((k) => {
-                            if (k !== 'type') containerFilter[k] = cond[k];
-                        });
-                    });
+        // 각 컨테이너를 필터 오브젝트로 변환
+        const filters = concrete.map((c, idx, arr) => {
+          const containerFilter = { type: c.tableName };
+          // item들을 하나의 컨테이너 필터에 병합
+          c.items.forEach((item) => {
+            const cond = buildFilterCondition(item);
+            Object.keys(cond).forEach((k) => {
+              if (k !== 'type') containerFilter[k] = cond[k];
+            });
+          });
 
-                    // 컨테이너 간 operator: 현재 컨테이너가 "이전 컨테이너와" 어떻게 결합되는지 표시
-                    // UI 상 연결선은 prevContainer.logic 이므로, filters[idx] 에는 prev.logic 을 단다.
-                    if (idx > 0) {
-                        const prev = arr[idx - 1];
-                        if (prev?.logic) {
-                            containerFilter.operator = mapLogicToOperator(prev.logic);
-                        }
-                    }
-                    return containerFilter;
-                });
-
-                return filters;
-            };
-
-            if (row.type === 'initial') {
-                const filters = serializeContainersWithOperators();
-                if (filters.length > 0) {
-                    requestData.cohortDefinition.initialGroup.containers.push({
-                        name: row.name,
-                        // initial 쪽은 그룹 operator 개념이 없으므로 생략
-                        filters,
-                    });
-                }
-            } else {
-                const filters = serializeContainersWithOperators();
-                if (filters.length > 0) {
-                    requestData.cohortDefinition.comparisonGroup.containers.push({
-                        name: row.name,
-                        // 그룹 간 operator (AND/NOT)
-                        operator: mapRowTypeToOperator(row.type),
-                        filters,
-                });
-                }
+          // 컨테이너 간 operator: 현재 컨테이너가 "이전 컨테이너와" 어떻게 결합되는지 표시
+          // UI 상 연결선은 prevContainer.logic 이므로, filters[idx] 에는 prev.logic 을 단다.
+          if (idx > 0) {
+            const prev = arr[idx - 1];
+            if (prev?.logic) {
+              containerFilter.operator = mapLogicToOperator(prev.logic);
             }
+          }
+          return containerFilter;
         });
 
-        return requestData;
-    }
+        return filters;
+      };
 
+      if (row.type === 'initial') {
+        const filters = serializeContainersWithOperators();
+        if (filters.length > 0) {
+          requestData.cohortDefinition.initialGroup.containers.push({
+            name: row.name,
+            // initial 쪽은 그룹 operator 개념이 없으므로 생략
+            filters,
+          });
+        }
+      } else {
+        const filters = serializeContainersWithOperators();
+        if (filters.length > 0) {
+          requestData.cohortDefinition.comparisonGroup.containers.push({
+            name: row.name,
+            // 그룹 간 operator (AND/NOT)
+            operator: mapRowTypeToOperator(row.type),
+            filters,
+          });
+        }
+      }
+    });
 
-    async function createCohort() {
+    return requestData;
+  }
+
+  async function createCohort() {
     try {
       const requestData = buildApiRequestData();
 
