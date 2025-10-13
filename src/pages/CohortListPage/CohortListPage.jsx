@@ -213,17 +213,18 @@ export default function CohortListPage() {
                 </button>
               </div>
 
-              <button
-                className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${compareButtonStyles}`}
-                onClick={handleComparison}
-              >
-                <span>Compare</span>
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${iconStyles}`}
-                >
-                  {selectedCount}
-                </span>
-              </button>
+              {/* 코호트 비교 버튼 주석 처리 */}
+              {/*<button*/}
+              {/*  className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${compareButtonStyles}`}*/}
+              {/*  onClick={handleComparison}*/}
+              {/*>*/}
+              {/*  <span>Compare</span>*/}
+              {/*  <span*/}
+              {/*    className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${iconStyles}`}*/}
+              {/*  >*/}
+              {/*    {selectedCount}*/}
+              {/*  </span>*/}
+              {/*</button>*/}
 
               <Link
                 to="/cohort-definition"
