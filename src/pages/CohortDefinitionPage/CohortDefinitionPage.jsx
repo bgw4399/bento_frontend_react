@@ -692,6 +692,22 @@ export default function CohortDefinitionPage() {
   }
 
   function buildFilterCondition(item) {
+    // 0) fieldType 정규화
+    const rawType = (item.fieldType ?? '').toString().trim().toLowerCase();
+    const ft =
+      rawType === 'list' || rawType === 'select'
+        ? 'lookup'
+        : rawType === 'range' || rawType === 'integer'
+          ? 'range_int'
+          : rawType === 'number' || rawType === 'float'
+            ? 'range_float'
+            : rawType;
+
+    // 1) 테이블 이름 확정
+    const tableName =
+      item.tableName || convertFieldTypeToApiType(item.fieldType);
+
+    // 2) 테이블-컬럼 매핑
     const tableColumnMapping = {
       condition_era: {
         condition_concept_id: 'conceptset',
@@ -701,6 +717,8 @@ export default function CohortDefinitionPage() {
         condition_era_end_age: 'endAge',
         condition_era_gender: 'gender',
         condition_era_status: 'conditionStatus',
+        // count 예시 (서버 스키마 키명에 맞춰 오른쪽 값을 수정하세요)
+        condition_occurrence_count: 'occurrenceCount',
       },
       condition_occurrence: {
         condition_concept_id: 'conceptset',
@@ -855,57 +873,49 @@ export default function CohortDefinitionPage() {
       },
     };
 
-    const tableName =
-      item.tableName || convertFieldTypeToApiType(item.fieldType);
     const filter = { type: tableName };
     const columnMapping = tableColumnMapping[tableName] || {};
+    const mapField = (fieldName) => columnMapping[fieldName];
 
-    // lookup
+    // 3) Lookup
     if (
-      item.fieldType === 'lookup' &&
+      ft === 'lookup' &&
       item.selectedItems &&
       item.selectedItems.length > 0
     ) {
-      const conceptsetField = columnMapping[item.fieldName];
-      if (conceptsetField) {
+      const conceptField = mapField(item.fieldName);
+      if (conceptField) {
         const conceptIds = item.selectedItems.map(
-          (x) => x.target_concept_id || x,
+          (x) => x?.target_concept_id ?? x,
         );
-        filter[conceptsetField] = { eq: conceptIds };
+        filter[conceptField] = { eq: conceptIds };
         return filter;
       }
     }
 
-    // date/datetime
-    if (
-      (item.fieldType === 'date' || item.fieldType === 'datetime') &&
-      item.operator
-    ) {
-      const dateField = columnMapping[item.fieldName];
+    // 4) Date/Datetime
+    if ((ft === 'date' || ft === 'datetime') && item.operator) {
+      const dateField = mapField(item.fieldName);
       if (dateField) {
-        filter[dateField] = item.operator;
+        filter[dateField] = item.operator; // {gte, lte, ...}
         return filter;
       }
     }
 
-    // range
-    if (
-      (item.fieldType === 'range_int' || item.fieldType === 'range_float') &&
-      item.operator
-    ) {
-      const rangeField = columnMapping[item.fieldName];
+    // 5) Range (int/float)
+    if ((ft === 'range_int' || ft === 'range_float') && item.operator) {
+      const rangeField = mapField(item.fieldName);
       if (rangeField) {
-        filter[rangeField] = item.operator;
+        filter[rangeField] = item.operator; // {gte, lte, ...}
         return filter;
       }
-      return filter;
     }
 
-    // search
-    if (item.fieldType === 'search' && item.operator?.keywords?.length > 0) {
+    // 6) Search(키워드)
+    if (ft === 'search' && item.operator?.keywords?.length > 0) {
       const keywordItem = item.operator.keywords[0];
-      const sourceField = columnMapping[item.fieldName];
-      if (sourceField && keywordItem.keyword) {
+      const sourceField = mapField(item.fieldName);
+      if (sourceField && keywordItem?.keyword) {
         if (keywordItem.operator === 'contains') {
           filter[sourceField] = { contains: keywordItem.keyword };
         } else if (keywordItem.operator === 'not_contains') {
@@ -917,6 +927,7 @@ export default function CohortDefinitionPage() {
       }
     }
 
+    // 매핑 불가 시 type만 유지 (서버에서 무시되도록)
     return filter;
   }
 
