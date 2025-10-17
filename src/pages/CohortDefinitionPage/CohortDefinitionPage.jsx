@@ -10,15 +10,6 @@ function cx(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-// 그룹별 색상 (원하면 rowStyles 기반으로 바꿔도 OK)
-const groupSegmentClasses = [
-  'bg-blue-700',
-  'bg-blue-400',
-  'bg-blue-300',
-  'bg-cyan-300',
-  'bg-sky-300',
-];
-
 // 분할 바
 function SegmentedBar({ rows: segRows = [], total: rawTotal }) {
   const total = Number(rawTotal) || 0;
@@ -1131,8 +1122,8 @@ export default function CohortDefinitionPage() {
                     </div>
                   </div>
                 ) : cohortNameChecked &&
-                  cohortName.trim() &&
-                  !cohortNameError ? (
+                cohortName.trim() &&
+                !cohortNameError ? (
                   <div className="flex flex-row items-center gap-1">
                     <svg
                       className="h-4 w-4 text-green-500"
@@ -1183,15 +1174,8 @@ export default function CohortDefinitionPage() {
               <div className="flex h-full items-center gap-0 overflow-x-auto pr-4">
                 {rows.map((row, rowIndex) => {
                   const rowStyle = getRowStyle(rowIndex);
-
-                  const segments = rows
-                    .map((r, i) => ({
-                      label: r.name,
-                      count: r.patientCount || 0,
-                      className:
-                        groupSegmentClasses[i % groupSegmentClasses.length],
-                    }))
-                    .filter((s) => s.count > 0);
+                  const barClass = rowStyle?.bar || 'bg-slate-500';
+                  const textClass = rowStyle?.text || 'text-slate-800';
 
                   return (
                     <React.Fragment key={row.id}>
@@ -1252,30 +1236,23 @@ export default function CohortDefinitionPage() {
                         </div>
 
                         <div className="space-y-1 text-center">
-                          {finalPatientBase > 0 ? (
+                          {row.patientBase > 0 ? (
                             <>
-                              {/* ✅ 그룹이 2개 이상이면 분할 바, 아니면 기존 단색 바 */}
-                              {segments.length > 1 ? (
-                                <SegmentedBar
-                                  segments={segments}
-                                  total={finalPatientBase}
+                              <div className="mx-auto h-3 overflow-hidden rounded-full bg-slate-300">
+                                <div
+                                  className={`h-3 rounded-full ${barClass}`}
+                                  style={{
+                                    width: `${row.patientPercent.toFixed(1)}%`,
+                                  }}
                                 />
-                              ) : (
-                                <div className="mx-auto h-3 overflow-hidden rounded-full bg-slate-300">
-                                  <div
-                                    className="h-3 rounded-full bg-blue-900"
-                                    style={{
-                                      width: `${finalPatientPercent.toFixed(1)}%`,
-                                    }}
-                                  />
-                                </div>
-                              )}
-
-                              <p className="text-[10px] font-medium text-blue-900">
-                                {finalPatientCount.toLocaleString()} /{' '}
-                                {finalPatientBase.toLocaleString()}{' '}
-                                <span className="font-normal text-blue-900">
-                                  ({finalPatientPercent.toFixed(1)}%)
+                              </div>
+                              <p
+                                className={`text-[10px] font-medium ${textClass}`}
+                              >
+                                {row.patientCount.toLocaleString()} /{' '}
+                                {row.patientBase.toLocaleString()}
+                                <span className={`font-normal ${textClass}`}>
+                                  ({row.patientPercent.toFixed(1)}%)
                                 </span>
                               </p>
                             </>
@@ -1821,10 +1798,10 @@ export default function CohortDefinitionPage() {
               const currentItem = c?.items[selectedField ?? 0];
               return currentItem
                 ? {
-                    fieldName: currentItem.fieldName,
-                    tableName: currentItem.tableName,
-                    fieldType: currentItem.fieldType,
-                  }
+                  fieldName: currentItem.fieldName,
+                  tableName: currentItem.tableName,
+                  fieldType: currentItem.fieldType,
+                }
                 : null;
             })()}
             existingData={(() => {
@@ -1833,11 +1810,11 @@ export default function CohortDefinitionPage() {
               const currentItem = c?.items[selectedField ?? 0];
               return currentItem
                 ? {
-                    selectedItems: currentItem.selectedItems || [],
-                    conditions: currentItem.conditions,
-                    summary: currentItem.summary,
-                    operator: currentItem.operator || {},
-                  }
+                  selectedItems: currentItem.selectedItems || [],
+                  conditions: currentItem.conditions,
+                  summary: currentItem.summary,
+                  operator: currentItem.operator || {},
+                }
                 : null;
             })()}
             onClose={closeModal}
