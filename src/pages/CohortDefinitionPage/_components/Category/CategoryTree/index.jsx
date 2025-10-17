@@ -1,20 +1,42 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CategoryNode from '../CategoryNode/index.jsx';
 import { getCategories } from '../../../../../api/cohort-definition/categories.js';
+import { dummyCategories } from '../../../../../data/categories.js';
 
 export default function CategoryTree() {
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState({});
 
-  // category 불러오기
+  // category 불러오기 (API 실패/이상 시 dummyCategories로 폴백)
   useEffect(() => {
     const getData = async () => {
-      const data = await getCategories();
-      setCategories(data);
+      let dataToUse = dummyCategories; // 기본값: 더미
 
+      try {
+        const data = await getCategories();
+
+        // 기대 형태 검사: 배열이고 길이가 있어야 정상
+        if (Array.isArray(data) && data.length > 0) {
+          dataToUse = data;
+        } else {
+          console.warn(
+            '[CategoryTree] getCategories()가 비어있거나 잘못된 형식입니다. dummyCategories를 사용합니다.',
+          );
+        }
+      } catch (err) {
+        console.error(
+          '[CategoryTree] 카테고리 로드 실패. dummyCategories로 폴백합니다.',
+          err,
+        );
+      }
+
+      // 실제로 사용할 데이터 셋업
+      setCategories(dataToUse);
+
+      // 펼침 상태 초기화
       const initExpanded = {};
-      for (const cat of data) {
+      for (const cat of dataToUse) {
         initExpanded[cat.table] = false;
       }
       setExpanded(initExpanded);

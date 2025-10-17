@@ -10,6 +10,66 @@ function cx(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
+// 그룹별 색상 (원하면 rowStyles 기반으로 바꿔도 OK)
+const groupSegmentClasses = [
+  'bg-blue-700',
+  'bg-blue-400',
+  'bg-blue-300',
+  'bg-cyan-300',
+  'bg-sky-300',
+];
+
+// 분할 바
+function SegmentedBar({ rows: segRows = [], total: rawTotal }) {
+  const total = Number(rawTotal) || 0;
+  const safeRows = Array.isArray(segRows) ? segRows : [];
+
+  const segments = safeRows
+    .map((row, i) => {
+      const count = Number(row?.patientCount) || 0;
+      const style = getRowStyle(i) || {};
+      const className =
+        typeof style?.bar === 'string' ? style.bar : 'bg-slate-400';
+      return {
+        id: row?.id ?? i,
+        label: row?.name ?? `그룹 ${i + 1}`,
+        count,
+        className,
+      };
+    })
+    .filter((s) => s.count > 0);
+
+  if (total <= 0 || segments.length === 0) {
+    return (
+      <div className="mx-auto h-3 overflow-hidden rounded-full bg-slate-300" />
+    );
+  }
+
+  return (
+    <div className="mx-auto flex h-3 overflow-hidden rounded-full bg-slate-300">
+      {segments.map((s, i) => {
+        const pct = Math.max(0, Math.min(100, (s.count / total) * 100));
+        const isFirst = i === 0;
+        const isLast = i === segments.length - 1;
+        return (
+          <div
+            key={s.id}
+            className={`${s.className} h-3`}
+            style={{
+              width: `${pct}%`,
+              borderTopLeftRadius: isFirst ? '9999px' : 0,
+              borderBottomLeftRadius: isFirst ? '9999px' : 0,
+              borderTopRightRadius: isLast ? '9999px' : 0,
+              borderBottomRightRadius: isLast ? '9999px' : 0,
+            }}
+            title={`${s.label}: ${s.count.toLocaleString()}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 const rowStyles = [
   {
     gradient: 'from-blue-800 to-blue-950',
@@ -174,6 +234,23 @@ export default function CohortDefinitionPage() {
   ]);
   const nextRowIdRef = useRef(1);
   const nextContainerIdRef = useRef(2);
+
+  function mapLogicToOperator(logic) {
+    switch (logic) {
+      case 'AND':
+        return 'and';
+      case 'OR':
+        return 'or';
+      case 'NOT':
+        return 'not';
+      default:
+        return 'and'; // fallback (원하면 null 반환 등으로 바꿔도 됨)
+    }
+  }
+
+  function mapRowTypeToOperator(rowType) {
+    return rowType === 'NOT' ? 'not' : rowType === 'AND' ? 'and' : undefined; // initial은 undefined
+  }
 
   // 편집 인풋 포커스
   useEffect(() => {
@@ -521,25 +598,43 @@ export default function CohortDefinitionPage() {
   }, []);
 
   // --- Part 4/6: fetching & API builders ---
+
+  async function postCohortToApi(requestData) {
+    if (!API_BASE) {
+      alert('환경변수 VITE_PUBLIC_API_URI가 설정되어 있지 않습니다.');
+      return null;
+    }
+
+    const response = await fetch(`${API_BASE}/api/cohort`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  }
+
   async function fetchCohortPatientCounts() {
     const res = await fetch('/patient-count-testdata.json'); // 임시 더미데이터
     if (!res.ok) throw new Error('데이터를 불러올 수 없습니다');
     return await res.json();
   }
 
-  async function getPatientCount() {
-    setIsFinalCountLoading(true);
-    setRows((prev) => prev.map((r) => ({ ...r, isLoading: true })));
-
-    const data = await fetchCohortPatientCounts();
-
+  function updatePatientCounts(result) {
     setRows((prev) =>
       prev.map((row, idx) => {
-        const patientCount = data.containerCounts?.[idx] ?? 0;
+        const patientCount = result.containerCounts?.[idx] ?? 0;
         const patientBase =
           idx !== 0
-            ? (data.containerCounts?.[idx - 1] ?? 0)
-            : (data.containerCounts?.[idx] ?? 0);
+            ? (result.containerCounts?.[idx - 1] ?? 0)
+            : (result.containerCounts?.[idx] ?? 0);
         const patientPercent =
           patientBase > 0 ? (patientCount / patientBase) * 100 : 0;
         return {
@@ -552,12 +647,32 @@ export default function CohortDefinitionPage() {
       }),
     );
 
-    const base = data.totalPatients ?? 0;
-    const count = data.finalPatientCount ?? 0;
+    const base = result.totalPatients ?? 0;
+    const count = result.finalPatientCount ?? 0;
     setFinalPatientBase(base);
     setFinalPatientCount(count);
     setFinalPatientPercent(base > 0 ? (count / base) * 100 : 0);
-    setIsFinalCountLoading(false);
+  }
+
+  async function getPatientCount() {
+    try {
+      setIsFinalCountLoading(true);
+      setRows((prev) => prev.map((r) => ({ ...r, isLoading: true })));
+
+      const requestData = buildApiRequestData();
+      requestData.temporary = true; // ✅ 임시 계산용 플래그 추가
+
+      const result = await postCohortToApi(requestData);
+
+      // ✅ 결과 반영
+      updatePatientCounts(result);
+    } catch (error) {
+      alert(
+        '환자 수 조회에 실패했습니다: ' + (error?.message || String(error)),
+      );
+    } finally {
+      setIsFinalCountLoading(false);
+    }
   }
 
   function convertFieldTypeToApiType(fieldType) {
@@ -624,7 +739,7 @@ export default function CohortDefinitionPage() {
       dose_era: {
         drug_concept_id: 'conceptset',
         dose_era_start_age: 'startAge',
-        dose_era_end_age: 'EndAge',
+        dose_era_end_age: 'endAge',
         dose_era_gender: 'gender',
         dose_era_start_date: 'startDate',
         dose_era_end_date: 'endDate',
@@ -817,51 +932,56 @@ export default function CohortDefinitionPage() {
     };
 
     rows.forEach((row) => {
+      // 공통: 컨테이너 -> filters 직렬화 (컨테이너 간 operator 포함)
+      const serializeContainersWithOperators = () => {
+        // row.containers 를 돌면서 비어있지 않은 것만 모으고
+        const concrete = row.containers.filter(
+          (c) => !c.isEmpty && c.items.length > 0,
+        );
+
+        // 각 컨테이너를 필터 오브젝트로 변환
+        const filters = concrete.map((c, idx, arr) => {
+          const containerFilter = { type: c.tableName };
+          // item들을 하나의 컨테이너 필터에 병합
+          c.items.forEach((item) => {
+            const cond = buildFilterCondition(item);
+            Object.keys(cond).forEach((k) => {
+              if (k !== 'type') containerFilter[k] = cond[k];
+            });
+          });
+
+          // 컨테이너 간 operator: 현재 컨테이너가 "이전 컨테이너와" 어떻게 결합되는지 표시
+          // UI 상 연결선은 prevContainer.logic 이므로, filters[idx] 에는 prev.logic 을 단다.
+          if (idx > 0) {
+            const prev = arr[idx - 1];
+            if (prev?.logic) {
+              containerFilter.operator = mapLogicToOperator(prev.logic);
+            }
+          }
+          return containerFilter;
+        });
+
+        return filters;
+      };
+
       if (row.type === 'initial') {
-        const initialContainer = { name: row.name, filters: [] };
-
-        row.containers.forEach((c) => {
-          if (!c.isEmpty && c.items.length > 0) {
-            const containerFilter = { type: c.tableName };
-            c.items.forEach((item) => {
-              const cond = buildFilterCondition(item);
-              Object.keys(cond).forEach((k) => {
-                if (k !== 'type') containerFilter[k] = cond[k];
-              });
-            });
-            initialContainer.filters.push(containerFilter);
-          }
-        });
-
-        if (initialContainer.filters.length > 0) {
-          requestData.cohortDefinition.initialGroup.containers.push(
-            initialContainer,
-          );
+        const filters = serializeContainersWithOperators();
+        if (filters.length > 0) {
+          requestData.cohortDefinition.initialGroup.containers.push({
+            name: row.name,
+            // initial 쪽은 그룹 operator 개념이 없으므로 생략
+            filters,
+          });
         }
-      } else if (row.type === 'AND' || row.type === 'NOT') {
-        const comparisonContainer = {
-          name: row.name,
-          operator: row.type === 'NOT' ? 'not' : 'and',
-          filters: [],
-        };
-
-        row.containers.forEach((c) => {
-          if (!c.isEmpty && c.items.length > 0) {
-            const containerFilter = { type: c.tableName };
-            c.items.forEach((item) => {
-              const cond = buildFilterCondition(item);
-              Object.keys(cond).forEach((k) => {
-                if (k !== 'type') containerFilter[k] = cond[k];
-              });
-            });
-            comparisonContainer.filters.push(containerFilter);
-          }
-        });
-
-        if (comparisonContainer.filters.length > 0) {
-          requestData.cohortDefinition.comparisonGroup.containers.push(
-            comparisonContainer,
-          );
+      } else {
+        const filters = serializeContainersWithOperators();
+        if (filters.length > 0) {
+          requestData.cohortDefinition.comparisonGroup.containers.push({
+            name: row.name,
+            // 그룹 간 operator (AND/NOT)
+            operator: mapRowTypeToOperator(row.type),
+            filters,
+          });
         }
       }
     });
@@ -871,53 +991,15 @@ export default function CohortDefinitionPage() {
 
   async function createCohort() {
     try {
-      const requestData = buildApiRequestData();
+      const requestData = buildApiRequestData(); // 기존 구조 동일
+      requestData.temporary = false; // 실제 생성
 
-      if (!API_BASE) {
-        alert('환경변수 NEXT_PUBLIC_API_URI 가 설정되어 있지 않습니다.');
-        return;
-      }
+      const result = await postCohortToApi(requestData);
 
-      const response = await fetch(`${API_BASE}/api/cohort`, {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
-
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-
-      const result = await response.json();
       alert('코호트 생성이 완료되었습니다.');
 
       if (result.containerCounts) {
-        setRows((prev) =>
-          prev.map((row, idx) => {
-            const patientCount = result.containerCounts[idx] ?? 0;
-            const patientBase =
-              idx !== 0
-                ? (result.containerCounts[idx - 1] ?? 0)
-                : (result.containerCounts[idx] ?? 0);
-            const patientPercent =
-              patientBase > 0 ? (patientCount / patientBase) * 100 : 0;
-            return {
-              ...row,
-              patientCount,
-              patientBase,
-              patientPercent,
-              isLoading: false,
-            };
-          }),
-        );
-
-        const base = result.totalPatients ?? 0;
-        const count = result.finalPatientCount ?? 0;
-        setFinalPatientBase(base);
-        setFinalPatientCount(count);
-        setFinalPatientPercent(base > 0 ? (count / base) * 100 : 0);
+        updatePatientCounts(result);
       }
     } catch (error) {
       alert('코호트 생성에 실패했습니다: ' + (error?.message || String(error)));
@@ -1090,6 +1172,16 @@ export default function CohortDefinitionPage() {
               <div className="flex h-full items-center gap-0 overflow-x-auto pr-4">
                 {rows.map((row, rowIndex) => {
                   const rowStyle = getRowStyle(rowIndex);
+
+                  const segments = rows
+                    .map((r, i) => ({
+                      label: r.name,
+                      count: r.patientCount || 0,
+                      className:
+                        groupSegmentClasses[i % groupSegmentClasses.length],
+                    }))
+                    .filter((s) => s.count > 0);
+
                   return (
                     <React.Fragment key={row.id}>
                       {rowIndex > 0 && row.type !== 'initial' && (
@@ -1148,32 +1240,31 @@ export default function CohortDefinitionPage() {
                           )}
                         </div>
 
-                        <div className="space-y-1.5 text-center">
-                          {row.patientBase > 0 ? (
+                        <div className="space-y-1 text-center">
+                          {finalPatientBase > 0 ? (
                             <>
-                              <div className="mx-auto h-3 overflow-hidden rounded-full bg-slate-300">
-                                <div
-                                  className={cx(
-                                    rowStyle.bar,
-                                    'h-3 rounded-full',
-                                  )}
-                                  style={{
-                                    width: `${row.patientPercent.toFixed(1)}%`,
-                                  }}
+                              {/* ✅ 그룹이 2개 이상이면 분할 바, 아니면 기존 단색 바 */}
+                              {segments.length > 1 ? (
+                                <SegmentedBar
+                                  segments={segments}
+                                  total={finalPatientBase}
                                 />
-                              </div>
-                              <p
-                                className={cx(
-                                  'pt-0 text-[10px] font-medium',
-                                  rowStyle.text,
-                                )}
-                              >
-                                {row.patientCount.toLocaleString()} /{' '}
-                                {row.patientBase.toLocaleString()}{' '}
-                                <span
-                                  className={cx('font-normal', rowStyle.text)}
-                                >
-                                  ({row.patientPercent.toFixed(1)}%)
+                              ) : (
+                                <div className="mx-auto h-3 overflow-hidden rounded-full bg-slate-300">
+                                  <div
+                                    className="h-3 rounded-full bg-blue-900"
+                                    style={{
+                                      width: `${finalPatientPercent.toFixed(1)}%`,
+                                    }}
+                                  />
+                                </div>
+                              )}
+
+                              <p className="text-[10px] font-medium text-blue-900">
+                                {finalPatientCount.toLocaleString()} /{' '}
+                                {finalPatientBase.toLocaleString()}{' '}
+                                <span className="font-normal text-blue-900">
+                                  ({finalPatientPercent.toFixed(1)}%)
                                 </span>
                               </p>
                             </>
@@ -1241,14 +1332,9 @@ export default function CohortDefinitionPage() {
                   <div className="space-y-1 text-center">
                     {finalPatientBase > 0 ? (
                       <>
-                        <div className="mx-auto h-3 overflow-hidden rounded-full bg-slate-300">
-                          <div
-                            className="h-3 rounded-full bg-blue-900"
-                            style={{
-                              width: `${finalPatientPercent.toFixed(1)}%`,
-                            }}
-                          />
-                        </div>
+                        {/* ✅ 그룹별 색상 기반 분할 바 */}
+                        <SegmentedBar rows={rows} total={finalPatientBase} />
+
                         <p className="text-[10px] font-medium text-blue-900">
                           {finalPatientCount.toLocaleString()} /{' '}
                           {finalPatientBase.toLocaleString()}{' '}
