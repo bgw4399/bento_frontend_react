@@ -154,24 +154,24 @@ export default function Layout() {
                     </ul>
                   </div>
                   <div className="w-[200px] border-r py-4">
-                    {/*<ul className="space-y-3">*/}
-                    {/*  <li onMouseEnter={() => setActiveMenu('custom')}>*/}
-                    {/*    <Link*/}
-                    {/*      to="/custom-chart"*/}
-                    {/*      className="block px-6 text-sm text-slate-600 hover:text-blue-600"*/}
-                    {/*    >*/}
-                    {/*      Chart Set List*/}
-                    {/*    </Link>*/}
-                    {/*  </li>*/}
-                    {/*  <li onMouseEnter={() => setActiveMenu('custom')}>*/}
-                    {/*    <Link*/}
-                    {/*      to="/custom-chart/new"*/}
-                    {/*      className="block px-6 text-sm text-slate-600 hover:text-blue-600"*/}
-                    {/*    >*/}
-                    {/*      Chart Definition*/}
-                    {/*    </Link>*/}
-                    {/*  </li>*/}
-                    {/*</ul>*/}
+                    <ul className="space-y-3">
+                      <li onMouseEnter={() => setActiveMenu('custom')}>
+                        <Link
+                          to="/custom-chart"
+                          className="block px-6 text-sm text-slate-600 hover:text-blue-600"
+                        >
+                          Data Browser
+                        </Link>
+                      </li>
+                      <li onMouseEnter={() => setActiveMenu('custom')}>
+                        <Link
+                          to="/custom-chart/new"
+                          className="block px-6 text-sm text-slate-600 hover:text-blue-600"
+                        >
+                          Custom Chart
+                        </Link>
+                      </li>
+                    </ul>
                   </div>
                   <div className="w-[200px] border-r py-4">
                     <ul className="space-y-3">
