@@ -76,7 +76,7 @@ export default function Layout() {
                   Person
                 </Link>
                 <Link
-                  to="/custom-chart"
+                  to="/data-browser"
                   onMouseEnter={() => handleMouseEnter('custom')}
                   className={`flex h-[60px] w-[200px] items-center px-6 text-[15px] transition-all duration-200 hover:font-semibold hover:text-slate-900 ${activeMenu === 'custom' ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}
                 >
@@ -157,7 +157,7 @@ export default function Layout() {
                     <ul className="space-y-3">
                       <li onMouseEnter={() => setActiveMenu('custom')}>
                         <Link
-                          to="/custom-chart"
+                          to="/data-browser"
                           className="block px-6 text-sm text-slate-600 hover:text-blue-600"
                         >
                           Data Browser
@@ -165,7 +165,7 @@ export default function Layout() {
                       </li>
                       <li onMouseEnter={() => setActiveMenu('custom')}>
                         <Link
-                          to="/custom-chart/new"
+                          to="/custom-chart"
                           className="block px-6 text-sm text-slate-600 hover:text-blue-600"
                         >
                           Custom Chart
