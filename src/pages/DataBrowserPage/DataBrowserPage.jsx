@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronRight,
+  User,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -550,7 +551,6 @@ export default function MedicalDataBrowser() {
                   />
                 </div>
                 <Button onClick={handleSearch} className="h-12 px-8">
-                  <TrendingUp className="mr-2 h-5 w-5" />
                   Analyze
                 </Button>
               </div>
@@ -571,7 +571,7 @@ export default function MedicalDataBrowser() {
                         className={`flex items-center gap-3 whitespace-nowrap rounded-lg px-4 py-3 transition-all ${
                           isActive
                             ? 'bg-primary text-primary-foreground shadow-lg'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            : 'border border-border text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                       >
                         <Icon className="h-5 w-5" />
@@ -597,9 +597,30 @@ export default function MedicalDataBrowser() {
                   })}
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Analytics 섹션 */}
+        <section className="py-8">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="space-y-8">
+              {/* 상단 차트 */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="flex items-center gap-3 text-2xl font-bold text-foreground">
+                    <TrendingUp className="h-6 w-6 text-primary" />
+                    {activeCategory?.label} Analytics
+                  </h2>
+                  <div className="flex items-center gap-3"></div>
+                </div>
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <TopChart data={mockSearchResults[activeTab]} />
+                </div>
+              </div>
 
               {/* 정렬/레이아웃 */}
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-end">
                 <div className="flex items-center gap-2 border-r border-border pr-4">
                   <Button
                     variant={sortBy === 'default' ? 'default' : 'outline'}
@@ -622,43 +643,25 @@ export default function MedicalDataBrowser() {
                     SNUH ID 기준
                   </Button>
                 </div>
-
-                <Button
-                  variant={layoutMode === 'split' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setLayoutMode('split')}
-                >
-                  <Grid3X3 className="h-4 w-4" />
-                  Split
-                </Button>
-                <Button
-                  variant={layoutMode === 'traditional' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setLayoutMode('traditional')}
-                >
-                  <List className="h-4 w-4" />
-                  List
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Analytics 섹션 */}
-        <section className="py-8">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="space-y-8">
-              {/* 상단 차트 */}
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-3 text-2xl font-bold text-foreground">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                    {activeCategory?.label} Analytics
-                  </h2>
-                  <div className="flex items-center gap-3"></div>
-                </div>
-                <div className="rounded-xl border border-border bg-card p-6">
-                  <TopChart data={mockSearchResults[activeTab]} />
+                <div className="flex items-center gap-2 pl-4">
+                  <Button
+                    variant={layoutMode === 'split' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setLayoutMode('split')}
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                    Split
+                  </Button>
+                  <Button
+                    variant={
+                      layoutMode === 'traditional' ? 'default' : 'outline'
+                    }
+                    size="sm"
+                    onClick={() => setLayoutMode('traditional')}
+                  >
+                    <List className="h-4 w-4" />
+                    List
+                  </Button>
                 </div>
               </div>
 
@@ -689,22 +692,28 @@ export default function MedicalDataBrowser() {
                                 key={item.childId}
                                 className="px-6 py-3 pl-16 transition-colors hover:bg-muted/10"
                               >
-                                <div className="flex items-center gap-3">
+                                <div className="box-border flex w-full items-center gap-3">
                                   <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+
+                                  {/* 가운데 영역: 폭 제한 + 수축 허용 */}
                                   <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
+                                    <div className="flex items-center justify-between gap-3">
+                                      {/* 왼쪽(배지 + 텍스트) */}
+                                      <div className="flex min-w-0 items-center gap-2">
                                         <Badge
                                           variant="outline"
-                                          className="text-xs"
+                                          className="flex-shrink-0 text-xs"
                                         >
                                           {item.snuhId}
                                         </Badge>
-                                        <span className="truncate text-sm text-foreground">
+
+                                        <span className="block truncate text-sm text-foreground">
                                           {item.description}
                                         </span>
                                       </div>
-                                      <span className="text-sm font-medium text-muted-foreground">
+
+                                      {/* 오른쪽 숫자: 줄어들지 않게 */}
+                                      <span className="shrink-0 text-right text-sm font-medium text-muted-foreground">
                                         {item.count.toLocaleString()}
                                       </span>
                                     </div>
@@ -994,9 +1003,12 @@ export default function MedicalDataBrowser() {
                                       {item.description}
                                     </span>
                                   </div>
-                                  <span className="text-lg font-bold text-muted-foreground">
-                                    {item.count.toLocaleString()} participants
-                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                    <span className="font-medium text-muted-foreground">
+                                      {item.count.toLocaleString()}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
