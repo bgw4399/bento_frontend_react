@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -61,7 +61,7 @@ const mockCohorts = [
   },
 ];
 
-export function CohortHeader({ selectedCohorts, setSelectedCohorts }) {
+export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
   const [isCohortModalOpen, setIsCohortModalOpen] = useState(false);
   const [cohortSearchQuery, setCohortSearchQuery] = useState('');
   const [isCohortOverviewExpanded, setIsCohortOverviewExpanded] =
@@ -104,8 +104,25 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts }) {
   };
 
   return (
-    <section className="border-b border-border bg-gradient-to-r from-primary/5 to-accent/5">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <section className="border-b border-border bg-gradient-to-b from-primary/5 to-accent/5">
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+        {/* Title */}
+        <div>
+          <h1 className="mb-2 text-2xl font-bold text-gray-900">
+            {type === 'DataBrowser' ? 'Data Browser' : 'CustomChart'}
+          </h1>
+          <p className="text-gray-600">
+            {type === 'DataBrowser'
+              ? 'Browse aggregate-level data contributed by All of Us research\n' +
+                '            participants. Data are derived from multiple data sources. To\n' +
+                '            protect participant privacy, we have removed personal identifiers,\n' +
+                '            rounded aggregate data to counts of 20, and only included summary\n' +
+                '            demographic information. Individual-level data are available for\n' +
+                '            analysis in the Researcher Workbench.'
+              : 'Define your own data visualization parameters'}
+          </p>
+        </div>
+
         {/* Top bar: Cohort picker + total */}
         <div className="mb-6 flex items-center justify-between">
           <Dialog open={isCohortModalOpen} onOpenChange={setIsCohortModalOpen}>
@@ -173,10 +190,6 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts }) {
                             <div className="mt-1 text-sm text-muted-foreground">
                               {cohort.description}
                             </div>
-                            <div className="mt-2 flex items-center gap-1 text-sm font-medium text-primary">
-                              <Users className="h-3 w-3" />
-                              {cohort.count.toLocaleString()} participants
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -191,15 +204,6 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts }) {
               </div>
             </DialogContent>
           </Dialog>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-primary-foreground">
-              <Users className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                {totalParticipants.toLocaleString()}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Selected cohort badges */}
