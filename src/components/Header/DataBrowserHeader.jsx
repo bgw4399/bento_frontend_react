@@ -104,7 +104,7 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
   };
 
   return (
-    <section className="border-b border-border bg-gradient-to-b from-primary/5 to-accent/5">
+    <section className="border-b border-border bg-gradient-to-b from-blue-50 to-white">
       <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
         {/* Title */}
         <div>
