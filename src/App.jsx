@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage/RegisterPage.jsx';
 import CohortDefinitionPage from './pages/CohortDefinitionPage/CohortDefinitionPage.jsx';
 import DataBrowserPage from './pages/DataBrowserPage/DataBrowserPage.jsx';
+import CustomChartPage from './pages/CustomChartPage/CustomChartPage.jsx';
 
 function App() {
   const location = useLocation();
@@ -34,6 +35,7 @@ function App() {
         <Route path="cohort" element={<CohortListPage />} />
         <Route path="cohort-definition" element={<CohortDefinitionPage />} />
         <Route path="data-browser" element={<DataBrowserPage />} />
+        <Route path="custom-chart" element={<CustomChartPage />} />
 
         <Route path="person" element={<PersonLayout />}>
           <Route index element={<PersonSearchPage />} />
