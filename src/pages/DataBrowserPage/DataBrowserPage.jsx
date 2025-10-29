@@ -31,268 +31,9 @@ import { DataVisualization } from '../CustomChartPage/_components/data-visualiza
 import { TopChart } from './_components/top-chart.jsx';
 import { CohortHeader } from '../../components/Header/DataBrowserHeader.jsx';
 import { getDomainSummary } from '@/api/data-browser/domain-summary.js';
+import { getDomainConcepts } from '@/api/data-browser/get-concept-list.js';
 
 // ====== MOCKS ======
-const mockSearchResults = {
-  conditions: [
-    {
-      id: 1,
-      conceptId: 4865,
-      name: 'Pain',
-      code: 'R52',
-      snuhId: 'SNUH-C001',
-      count: 284400,
-      percentage: 80.25,
-      description:
-        'General pain conditions affecting various body systems - Primary source',
-    },
-    {
-      id: 101,
-      conceptId: 4865,
-      name: 'Pain',
-      code: 'R52',
-      snuhId: 'SNUH-C002',
-      count: 280500,
-      percentage: 79.15,
-      description:
-        'General pain conditions affecting various body systems - Secondary source',
-    },
-    {
-      id: 102,
-      conceptId: 4865,
-      name: 'Pain',
-      code: 'R52',
-      snuhId: 'SNUH-C003',
-      count: 275600,
-      percentage: 77.77,
-      description:
-        'General pain conditions affecting various body systems - Tertiary source',
-    },
-    {
-      id: 2,
-      conceptId: 8889,
-      name: 'Metabolic disease',
-      code: 'E88.9',
-      snuhId: 'SNUH-C004',
-      count: 267800,
-      percentage: 75.6,
-      description:
-        'Disorders affecting metabolism and biochemical processes - Primary source',
-    },
-    {
-      id: 201,
-      conceptId: 8889,
-      name: 'Metabolic disease',
-      code: 'E88.9',
-      snuhId: 'SNUH-C005',
-      count: 265200,
-      percentage: 74.87,
-      description:
-        'Disorders affecting metabolism and biochemical processes - Secondary source',
-    },
-    {
-      id: 3,
-      conceptId: 2200,
-      name: 'Mass of body structure',
-      code: 'R22',
-      snuhId: 'SNUH-C006',
-      count: 251200,
-      percentage: 70.9,
-      description:
-        'Abnormal masses or growths in body structures - Primary source',
-    },
-    {
-      id: 301,
-      conceptId: 2200,
-      name: 'Mass of body structure',
-      code: 'R22',
-      snuhId: 'SNUH-C007',
-      count: 248900,
-      percentage: 70.25,
-      description:
-        'Abnormal masses or growths in body structures - Secondary source',
-    },
-    {
-      id: 4,
-      conceptId: 9900,
-      name: 'Disorder due to infection',
-      code: 'B99',
-      snuhId: 'SNUH-C008',
-      count: 234600,
-      percentage: 66.2,
-      description:
-        'Medical conditions caused by infectious agents - Primary source',
-    },
-    {
-      id: 401,
-      conceptId: 9900,
-      name: 'Disorder due to infection',
-      code: 'B99',
-      snuhId: 'SNUH-C009',
-      count: 232100,
-      percentage: 65.49,
-      description:
-        'Medical conditions caused by infectious agents - Secondary source',
-    },
-    {
-      id: 402,
-      conceptId: 9900,
-      name: 'Disorder due to infection',
-      code: 'B99',
-      snuhId: 'SNUH-C010',
-      count: 229800,
-      percentage: 64.84,
-      description:
-        'Medical conditions caused by infectious agents - Tertiary source',
-    },
-    {
-      id: 5,
-      conceptId: 1000,
-      name: 'Hypertension',
-      code: 'I10',
-      snuhId: 'SNUH-C011',
-      count: 198700,
-      percentage: 56.1,
-      description: 'High blood pressure affecting cardiovascular system',
-    },
-    {
-      id: 6,
-      conceptId: 1100,
-      name: 'Type 2 Diabetes',
-      code: 'E11',
-      snuhId: 'SNUH-C012',
-      count: 176500,
-      percentage: 49.8,
-      description: 'Metabolic disorder affecting glucose regulation',
-    },
-  ].sort((a, b) => b.percentage - a.percentage),
-  'drug-exposures': [
-    {
-      id: 1,
-      conceptId: 6809,
-      name: 'Metformin',
-      code: 'RxNorm:6809',
-      snuhId: 'SNUH-D001',
-      count: 187500,
-      percentage: 52.95,
-      description:
-        'First-line medication for type 2 diabetes treatment - 500mg formulation',
-    },
-    {
-      id: 101,
-      conceptId: 6809,
-      name: 'Metformin',
-      code: 'RxNorm:6809',
-      snuhId: 'SNUH-D002',
-      count: 185200,
-      percentage: 52.3,
-      description:
-        'First-line medication for type 2 diabetes treatment - 1000mg formulation',
-    },
-    {
-      id: 2,
-      conceptId: 29046,
-      name: 'Lisinopril',
-      code: 'RxNorm:29046',
-      snuhId: 'SNUH-D003',
-      count: 142300,
-      percentage: 40.15,
-      description:
-        'ACE inhibitor used to treat high blood pressure - 10mg tablet',
-    },
-    {
-      id: 201,
-      conceptId: 29046,
-      name: 'Lisinopril',
-      code: 'RxNorm:29046',
-      snuhId: 'SNUH-D004',
-      count: 140100,
-      percentage: 39.53,
-      description:
-        'ACE inhibitor used to treat high blood pressure - 20mg tablet',
-    },
-    {
-      id: 3,
-      conceptId: 83367,
-      name: 'Atorvastatin',
-      code: 'RxNorm:83367',
-      snuhId: 'SNUH-D005',
-      count: 118900,
-      percentage: 33.55,
-      description: 'Statin medication for cholesterol management',
-    },
-  ].sort((a, b) => b.percentage - a.percentage),
-  'labs-measurements': [
-    {
-      id: 1,
-      conceptId: 84806,
-      name: 'Systolic Blood Pressure',
-      code: 'LOINC:8480-6',
-      snuhId: 'SNUH-M001',
-      count: 256900,
-      percentage: 72.5,
-      description:
-        'Measurement of blood pressure during heart contraction - Automated method',
-    },
-    {
-      id: 101,
-      conceptId: 84806,
-      name: 'Systolic Blood Pressure',
-      code: 'LOINC:8480-6',
-      snuhId: 'SNUH-M002',
-      count: 254600,
-      percentage: 71.85,
-      description:
-        'Measurement of blood pressure during heart contraction - Manual method',
-    },
-    {
-      id: 2,
-      conceptId: 45484,
-      name: 'Hemoglobin A1c',
-      code: 'LOINC:4548-4',
-      snuhId: 'SNUH-M003',
-      count: 223400,
-      percentage: 63.05,
-      description:
-        'Blood test measuring average glucose levels over 2-3 months',
-    },
-  ].sort((a, b) => b.percentage - a.percentage),
-  procedures: [
-    {
-      id: 1,
-      conceptId: 77057,
-      name: 'Mammography',
-      code: 'CPT:77057',
-      snuhId: 'SNUH-P001',
-      count: 123400,
-      percentage: 34.85,
-      description:
-        'X-ray examination of the breast for cancer screening - Screening type',
-    },
-    {
-      id: 101,
-      conceptId: 77057,
-      name: 'Mammography',
-      code: 'CPT:77057',
-      snuhId: 'SNUH-P002',
-      count: 121800,
-      percentage: 34.39,
-      description:
-        'X-ray examination of the breast for cancer screening - Diagnostic type',
-    },
-    {
-      id: 2,
-      conceptId: 93306,
-      name: 'Echocardiography',
-      code: 'CPT:93306',
-      snuhId: 'SNUH-P003',
-      count: 89200,
-      percentage: 25.2,
-      description: 'Ultrasound examination of the heart',
-    },
-  ].sort((a, b) => b.percentage - a.percentage),
-};
-
 const tabConfig = [
   {
     key: 'conditions',
@@ -381,6 +122,11 @@ export default function MedicalDataBrowser() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState('');
 
+  // 개념 리스트(탭 본문)용 상태
+  const [concepts, setConcepts] = useState([]);
+  const [conceptsLoading, setConceptsLoading] = useState(false);
+  const [conceptsError, setConceptsError] = useState('');
+
   // 탭 키 → summary row 매핑
   const summaryByKey = useMemo(() => {
     const map = {};
@@ -390,6 +136,7 @@ export default function MedicalDataBrowser() {
     return map;
   }, [summary]);
 
+  // 탭 api 호출
   async function refreshSummary(optionalKeyword) {
     try {
       setSummaryLoading(true);
@@ -455,19 +202,114 @@ export default function MedicalDataBrowser() {
     }
   }
 
-  // 최초 로드 & 코호트 변경 시 갱신
+  // 검색시, 컨셉 목록 불러오기
+  async function refreshConcepts() {
+    try {
+      setConceptsLoading(true);
+      setConceptsError('');
+
+      // 탭의 participants(분모) 확보
+      const participants = summaryByKey[activeTab]?.participant_count ?? null;
+
+      const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+
+      const raw = await getDomainConcepts({
+        tabKey: activeTab,
+        keyword: searchQuery,
+        viewBy: searchTarget, // 'target' | 'source'
+        cohortIds, // 리스트 형태로 전달
+      });
+
+      // UI 모델로 변환
+      // 기존 목업 구조에 최대한 맞추되, 부족한 값은 '-' 처리
+      const mapped = (raw || []).map((row, idx) => {
+        const count =
+          typeof row.total_participant_count === 'number'
+            ? row.total_participant_count
+            : 0;
+
+        const pct =
+          participants && participants > 0
+            ? (count / participants) * 100
+            : null; // 분모 없으면 표시 시 '-'
+
+        // 간단 설명: vocabulary key들 한 줄로
+        const vocabKeys = row.vocabulary_counts
+          ? Object.keys(row.vocabulary_counts)
+          : [];
+
+        return {
+          // 리스트 키용
+          id: row.concept_id || `row-${idx}`,
+          // 기존 렌더러에 맞춘 필드
+          conceptId: row.concept_id, // 숫자/문자 상관없이 그대로
+          code: row.concept_id ?? '-', // ✅ code 자리에 concept_id
+          name: row.concept_name ?? '-', // ✅ name 자리에 concept_name
+          snuhId: '-', // 단일 snuhId는 없으니 '-'(자식행에서 mapped_source_codes 노출)
+          allSnuhIds: row.mapped_source_codes || [], // 그룹/배지에 활용 가능
+          count,
+          percentage: pct, // null이면 렌더 때 '-' 처리
+          description: vocabKeys.length
+            ? `Vocab: ${vocabKeys.join(', ')}`
+            : '-',
+
+          // 그래프에 넘길 추가 원본 데이터
+          mapped_source_codes: row.mapped_source_codes || [],
+          descendent_concept: row.descendent_concept || [],
+          source: row.descendent_concept || [], // DataVisualization에서 source를 기대한다면 대비
+          _raw: row,
+        };
+      });
+
+      setConcepts(mapped);
+      setCurrentPage(1); // 검색/탭 변경 시 페이지 리셋
+    } catch (e) {
+      console.error(e);
+      setConcepts([]);
+      setConceptsError('Failed to load concepts');
+    } finally {
+      setConceptsLoading(false);
+    }
+  }
+
+  // 최초 + 코호트 변경 시 summary 갱신
   useEffect(() => {
-    refreshSummary(searchQuery); // keyword는 사실상 옵션이지만 붙여줌
+    refreshSummary(searchQuery);
+    // summary가 바뀌면 participants 달라질 수 있으니 concepts도 재계산
+    // (participant_count는 고정되지만, 처음 로드시엔 필요)
+    // summaryByKey가 계산된 다음 호출되도록 setTimeout 한 틱 뒤 호출
+    setTimeout(() => refreshConcepts(), 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCohorts]);
 
-  // Search 버튼 누를 때 요약도 갱신
+  // 탭 변경 시 개념 갱신
+  useEffect(() => {
+    refreshConcepts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // 검색 기준 변경 시 개념 갱신
+  useEffect(() => {
+    refreshConcepts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTarget]);
+
+  // Search 버튼
   const handleSearch = () => {
     setHasSearched(true);
     setExpandedItems(new Set());
     setCurrentPage(1);
     refreshSummary(searchQuery);
+    refreshConcepts();
   };
+
+  const activeParticipants = summaryByKey[activeTab]?.participant_count ?? null;
+  useEffect(() => {
+    if (activeParticipants !== null) {
+      refreshConcepts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeParticipants, activeTab]);
 
   const toggleSnuhGroup = (itemId) => {
     setExpandedSnuhGroups((prev) => {
@@ -487,77 +329,71 @@ export default function MedicalDataBrowser() {
   };
 
   const currentData = (() => {
-    const data = mockSearchResults[activeTab];
+    const data = concepts; // ✅ API 데이터 사용
 
+    // 검색창 필터(백엔드에서 이미 반영되지만, 클라이언트 추가 필터 허용하려면 유지)
     let filteredData = data;
     if (searchQuery.trim()) {
-      filteredData = data.filter((item) => {
-        if (searchTarget === 'target') {
-          return (
-            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.description.toLowerCase().includes(searchQuery.toLowerCase())
-          );
-        } else {
-          return item.snuhId.toLowerCase().includes(searchQuery.toLowerCase());
-        }
-      });
+      if (searchTarget === 'target') {
+        filteredData = data.filter(
+          (item) =>
+            (item.name ?? '-')
+              .toLowerCase()
+              .includes(searchQuery.toLowerCase()) ||
+            (item.description ?? '-')
+              .toLowerCase()
+              .includes(searchQuery.toLowerCase()),
+        );
+      } else {
+        // source 기준: mapped_source_codes 중 하나라도 포함되면 표시
+        filteredData = data.filter((item) =>
+          (item.allSnuhIds || []).some((code) =>
+            (code || '').toLowerCase().includes(searchQuery.toLowerCase()),
+          ),
+        );
+      }
     }
 
+    // 'snuh' 정렬(= SNUH ID 기준 보기)
     if (sortBy === 'snuh') {
-      const flattenedData = [];
-      const sortedData = [...filteredData].sort((a, b) => {
+      const flattened = [];
+      const sortedParents = [...filteredData].sort((a, b) => {
+        const ap = a.percentage ?? -1;
+        const bp = b.percentage ?? -1;
+        if (bp !== ap) return bp - ap;
         if (b.count !== a.count) return b.count - a.count;
-        return a.description.localeCompare(b.description);
+        return (a.name ?? '').localeCompare(b.name ?? '');
       });
 
-      sortedData.forEach((item) => {
-        flattenedData.push({ ...item, isParent: true });
-
-        if (expandedSnuhGroups.has(`${activeTab}-${item.id}`)) {
-          const relatedItems = filteredData.filter(
-            (relatedItem) =>
-              relatedItem.conceptId === item.conceptId &&
-              relatedItem.id !== item.id,
-          );
-
-          relatedItems.forEach((relatedItem) => {
-            flattenedData.push({
-              ...relatedItem,
-              isChild: true,
-              parentId: item.id,
-              childId: `${item.id}-${relatedItem.id}`,
-            });
-          });
+      for (const parent of sortedParents) {
+        const parentKey = `${activeTab}-${parent.id}`;
+        const expanded = expandedSnuhGroups.has(parentKey);
+        flattened.push({ ...parent, isParent: true, _expanded: expanded });
+        if (expanded) {
+          const children = (parent.allSnuhIds || []).map((code, idx) => ({
+            isChild: true,
+            parentId: parent.id,
+            childId: `${parent.id}-${idx}`,
+            snuhId: code,
+            description: '-',
+            count: '-', // 데이터 없음 → 렌더에서 가드
+          }));
+          flattened.push(...children);
         }
-      });
-      return flattenedData;
+      }
+      return flattened;
     }
 
-    // default: OMOP 그룹화
-    const groupedByConceptId = new Map();
-    filteredData.forEach((item) => {
-      if (!groupedByConceptId.has(item.conceptId))
-        groupedByConceptId.set(item.conceptId, []);
-      groupedByConceptId.get(item.conceptId).push(item);
+    // 기본: OMOP 기준 (API는 이미 unique concept 단위라 group 없이 정렬만)
+    const sorted = [...filteredData].sort((a, b) => {
+      const ap = a.percentage ?? -1;
+      const bp = b.percentage ?? -1;
+      if (bp !== ap) return bp - ap;
+      if (b.count !== a.count) return b.count - a.count;
+      return (a.name ?? '').localeCompare(b.name ?? '');
     });
 
-    const groupedData = Array.from(groupedByConceptId.values()).map((items) => {
-      const totalCount = items.reduce((sum, item) => sum + item.count, 0);
-      const avgPercentage =
-        items.reduce((sum, item) => sum + item.percentage, 0) / items.length;
-      const allSnuhIds = items.map((item) => item.snuhId);
-
-      return {
-        ...items[0],
-        count: totalCount,
-        percentage: avgPercentage,
-        allSnuhIds,
-        groupedItems: items,
-        isGrouped: true,
-      };
-    });
-
-    return groupedData.sort((a, b) => b.percentage - a.percentage);
+    return sorted;
   })();
 
   const totalPages = Math.ceil(currentData.length / searchLimit);
@@ -678,7 +514,24 @@ export default function MedicalDataBrowser() {
                   <div className="flex items-center gap-3"></div>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-6">
-                  <TopChart data={mockSearchResults[activeTab]} />
+                  {(() => {
+                    const chartData = concepts
+                      .filter(
+                        (d) =>
+                          typeof d.count === 'number' &&
+                          typeof d.percentage === 'number',
+                      )
+                      .sort(
+                        (a, b) => (b.percentage ?? -1) - (a.percentage ?? -1),
+                      )
+                      .slice(0, 10)
+                      .map((d) => ({
+                        name: d.name ?? '-',
+                        count: d.count,
+                        percentage: d.percentage,
+                      }));
+                    return <TopChart data={chartData} />;
+                  })()}
                 </div>
               </div>
 
@@ -770,7 +623,9 @@ export default function MedicalDataBrowser() {
 
                                       {/* 오른쪽 숫자: 줄어들지 않게 */}
                                       <span className="shrink-0 text-right text-sm font-medium text-muted-foreground">
-                                        {item.count.toLocaleString()}
+                                        {typeof item.count === 'number'
+                                          ? item.count.toLocaleString()
+                                          : '-'}
                                       </span>
                                     </div>
                                   </div>
@@ -816,10 +671,15 @@ export default function MedicalDataBrowser() {
                                       </div>
                                       <div className="text-right">
                                         <div className="text-xl font-bold text-primary">
-                                          {item.percentage.toFixed(1)}%
+                                          {typeof item.percentage === 'number'
+                                            ? item.percentage.toFixed(1)
+                                            : '-'}
+                                          %
                                         </div>
                                         <div className="mt-1 text-sm text-muted-foreground">
-                                          {item.count.toLocaleString()}
+                                          {typeof item.count === 'number'
+                                            ? item.count.toLocaleString()
+                                            : '-'}
                                         </div>
                                       </div>
                                     </div>
@@ -836,14 +696,9 @@ export default function MedicalDataBrowser() {
                           const isExpanded = expandedSnuhGroups.has(
                             `${activeTab}-${item.id}`,
                           );
-                          const relatedSnuhIds = mockSearchResults[
-                            activeTab
-                          ].filter(
-                            (relatedItem) =>
-                              relatedItem.conceptId === item.conceptId &&
-                              relatedItem.id !== item.id,
-                          );
-                          const hasRelatedSnuhIds = relatedSnuhIds.length > 0;
+                          const hasRelatedSnuhIds =
+                            Array.isArray(item.allSnuhIds) &&
+                            item.allSnuhIds.length > 1;
 
                           return (
                             <div key={item.id}>
@@ -897,7 +752,8 @@ export default function MedicalDataBrowser() {
                                                   <ChevronRight className="h-3 w-3" />
                                                 )}
                                                 <span className="ml-1 text-xs">
-                                                  {relatedSnuhIds.length}{' '}
+                                                  {(item.allSnuhIds?.length ||
+                                                    1) - 1}{' '}
                                                   related
                                                 </span>
                                               </Button>
@@ -906,10 +762,15 @@ export default function MedicalDataBrowser() {
                                       </div>
                                       <div className="text-right">
                                         <div className="text-xl font-bold text-primary">
-                                          {item.percentage}%
+                                          {typeof item.percentage === 'number'
+                                            ? item.percentage.toFixed(1)
+                                            : '-'}
+                                          %
                                         </div>
                                         <div className="mt-1 text-sm text-muted-foreground">
-                                          {item.count.toLocaleString()}
+                                          {typeof item.count === 'number'
+                                            ? item.count.toLocaleString()
+                                            : '-'}
                                         </div>
                                       </div>
                                     </div>
@@ -1049,7 +910,9 @@ export default function MedicalDataBrowser() {
                                   <div className="flex items-center gap-1">
                                     <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                                     <span className="font-medium text-muted-foreground">
-                                      {item.count.toLocaleString()}
+                                      {typeof item.count === 'number'
+                                        ? item.count.toLocaleString()
+                                        : '-'}
                                     </span>
                                   </div>
                                 </div>
@@ -1099,11 +962,16 @@ export default function MedicalDataBrowser() {
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <div className="text-2xl font-bold text-primary">
-                                      {item.percentage.toFixed(1)}%
+                                    <div className="text-xl font-bold text-primary">
+                                      {typeof item.percentage === 'number'
+                                        ? item.percentage.toFixed(1)
+                                        : '-'}
+                                      %
                                     </div>
                                     <div className="mt-1 text-sm text-muted-foreground">
-                                      {item.count.toLocaleString()}
+                                      {typeof item.count === 'number'
+                                        ? item.count.toLocaleString()
+                                        : '-'}
                                     </div>
                                   </div>
                                 </div>
@@ -1171,12 +1039,9 @@ export default function MedicalDataBrowser() {
                     const isExpanded = expandedSnuhGroups.has(
                       `${activeTab}-${item.id}`,
                     );
-                    const relatedSnuhIds = mockSearchResults[activeTab].filter(
-                      (relatedItem) =>
-                        relatedItem.conceptId === item.conceptId &&
-                        relatedItem.id !== item.id,
-                    );
-                    const hasRelatedSnuhIds = relatedSnuhIds.length > 0;
+                    const hasRelatedSnuhIds =
+                      Array.isArray(item.allSnuhIds) &&
+                      item.allSnuhIds.length > 1;
 
                     return (
                       <div
@@ -1227,18 +1092,24 @@ export default function MedicalDataBrowser() {
                                           <ChevronRight className="h-4 w-4" />
                                         )}
                                         <span className="ml-1 text-sm">
-                                          {relatedSnuhIds.length} related
+                                          {(item.allSnuhIds?.length || 1) - 1}{' '}
+                                          related
                                         </span>
                                       </Button>
                                     )}
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-2xl font-bold text-primary">
-                                    {item.percentage}%
+                                  <div className="text-xl font-bold text-primary">
+                                    {typeof item.percentage === 'number'
+                                      ? item.percentage.toFixed(1)
+                                      : '-'}
+                                    %
                                   </div>
                                   <div className="mt-1 text-sm text-muted-foreground">
-                                    {item.count.toLocaleString()}
+                                    {typeof item.count === 'number'
+                                      ? item.count.toLocaleString()
+                                      : '-'}
                                   </div>
                                 </div>
                               </div>
