@@ -163,8 +163,8 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
           </h1>
           <p className="text-gray-600">
             {type === 'DataBrowser'
-              ? 'Browse aggregate-level data contributed by All of Us research participants...'
-              : 'Define your own data visualization parameters'}
+              ? 'Browse aggregate-level data contributed by All of Us research participants.'
+              : 'Define your own data visualization parameters.'}
           </p>
         </div>
 
