@@ -17,7 +17,7 @@ export async function getDomainConcepts({
 }) {
   // 환경 변수에서 API 주소 불러오기 (없으면 상대경로로)
   const baseURL = import.meta.env.VITE_PUBLIC_API_URI || '';
-  const url = `${baseURL}/api/data-browser/${tabKey}/concepts`;
+  const url = `${baseURL}/data-browser/domains/${tabKey}/concepts`;
 
   const body = {
     domain: keyword || '',

@@ -38,7 +38,7 @@ export async function getDomainSummary({ keyword, cohortIds } = {}) {
     headers['cohortId'] = cohortIds.map(String);
   }
 
-  const url = `${API_URI}/api/data-browser/summary`;
+  const url = `${API_URI}/data-browser/summary`;
   const res = await axios.post(url, body, { headers });
   const list = Array.isArray(res.data) ? res.data : [];
 
