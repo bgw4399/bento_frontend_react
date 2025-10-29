@@ -148,10 +148,6 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
     });
   };
 
-  const totalParticipants = selectedCohorts.reduce(
-    (s, c) => s + (c.count || 0),
-    0,
-  );
   const safeCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
   const showingFrom =
     totalItems === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
