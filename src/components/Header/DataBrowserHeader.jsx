@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,66 +22,112 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-const mockCohorts = [
-  {
-    id: 1,
-    name: 'All Participants',
-    description: 'Complete dataset of all participants',
-    count: 354400,
-  },
-  {
-    id: 2,
-    name: 'Adult Cohort (18-65)',
-    description: 'Participants aged 18 to 65 years',
-    count: 287500,
-  },
-  {
-    id: 3,
-    name: 'Senior Cohort (65+)',
-    description: 'Participants aged 65 and older',
-    count: 89200,
-  },
-  {
-    id: 4,
-    name: 'Pediatric Cohort (<18)',
-    description: 'Participants under 18 years old',
-    count: 12300,
-  },
-  {
-    id: 5,
-    name: 'Diabetes Cohort',
-    description: 'Participants with diabetes diagnosis',
-    count: 45600,
-  },
-  {
-    id: 6,
-    name: 'Cardiovascular Cohort',
-    description: 'Participants with heart conditions',
-    count: 67800,
-  },
-];
+const API_URI = import.meta.env.VITE_PUBLIC_API_URI;
 
 export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
   const [isCohortModalOpen, setIsCohortModalOpen] = useState(false);
+
+  // 서버 검색/페이징 상태
   const [cohortSearchQuery, setCohortSearchQuery] = useState('');
+  const [serverQuery, setServerQuery] = useState('');
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1); // UI 1-based
+  const [totalItems, setTotalItems] = useState(0);
+  const [cohortList, setCohortList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState('');
+
   const [isCohortOverviewExpanded, setIsCohortOverviewExpanded] =
     useState(true);
   const [visibleCohortCards, setVisibleCohortCards] = useState(
     new Set(['age', 'sex', 'enrollment']),
   );
 
-  const filteredCohorts = useMemo(() => {
-    const q = cohortSearchQuery.toLowerCase();
-    return mockCohorts.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.description.toLowerCase().includes(q),
-    );
-  }, [cohortSearchQuery]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalItems / pageSize)),
+    [totalItems, pageSize],
+  );
 
-  const totalParticipants = selectedCohorts.reduce((s, c) => s + c.count, 0);
+  // ====== 서버 호출 ======
+  async function fetchCohorts({ page = 1, limit = pageSize, query = '' } = {}) {
+    setLoading(true);
+    setFetchError('');
+    try {
+      // API는 0-based page 사용
+      const apiPage = Math.max(0, Number(page) - 1);
+      const params = new URLSearchParams();
+      params.set('page', String(apiPage));
+      params.set('limit', String(limit));
+      if (query?.trim()) params.set('query', query.trim());
 
-  const handleCohortToggle = (cohort) => {
+      const res = await fetch(`${API_URI}/api/cohort?${params.toString()}`);
+      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+
+      const data = await res.json();
+
+      // 유연 파싱
+      const items =
+        data?.cohorts ??
+        data?.items ??
+        (Array.isArray(data) ? data : (data?.data ?? []));
+      const total =
+        Number(data?.total) ??
+        Number(data?.totalElements) ??
+        Number(data?.count) ??
+        (Array.isArray(items) ? Number(items.length) : 0);
+      const effectiveLimit = Number(data?.limit) || limit || 10;
+
+      setCohortList(Array.isArray(items) ? items : []);
+      setTotalItems(Number.isFinite(total) ? total : 0);
+      setPageSize(effectiveLimit);
+    } catch (e) {
+      console.error(e);
+      setFetchError('Failed to load cohorts.');
+      setCohortList([]);
+      setTotalItems(0);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // 모달 열릴 때 최초 로드
+  useEffect(() => {
+    if (isCohortModalOpen) {
+      fetchCohorts({ page: currentPage, limit: pageSize, query: serverQuery });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCohortModalOpen]);
+
+  // 페이지 변경 시
+  useEffect(() => {
+    if (!isCohortModalOpen) return;
+    fetchCohorts({ page: currentPage, limit: pageSize, query: serverQuery });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize]);
+
+  // 검색 디바운스(300ms)
+  useEffect(() => {
+    if (!isCohortModalOpen) return;
+    const t = setTimeout(() => {
+      setCurrentPage(1);
+      setServerQuery(cohortSearchQuery);
+      fetchCohorts({ page: 1, limit: pageSize, query: cohortSearchQuery });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cohortSearchQuery, isCohortModalOpen]);
+
+  const normalizeCohort = (raw) => {
+    const id = raw?.id ?? raw?.cohort_id ?? raw?._id;
+    const name = raw?.name ?? `(no name: ${id})`;
+    const description = raw?.description ?? '';
+    const count =
+      Number(raw?.count ?? raw?.size ?? raw?.participants ?? 0) || 0;
+    return { id, name, description, count };
+  };
+
+  const handleCohortToggle = (raw) => {
+    const cohort = normalizeCohort(raw);
     setSelectedCohorts((prev) => {
       const isSelected = prev.some((c) => c.id === cohort.id);
       if (isSelected) return prev.filter((c) => c.id !== cohort.id);
@@ -97,11 +143,19 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
   const toggleCohortCard = (cardId) => {
     setVisibleCohortCards((prev) => {
       const n = new Set(prev);
-      if (n.has(cardId)) n.delete(cardId);
-      else n.add(cardId);
+      n.has(cardId) ? n.delete(cardId) : n.add(cardId);
       return n;
     });
   };
+
+  const totalParticipants = selectedCohorts.reduce(
+    (s, c) => s + (c.count || 0),
+    0,
+  );
+  const safeCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
+  const showingFrom =
+    totalItems === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
+  const showingTo = Math.min(safeCurrentPage * pageSize, totalItems);
 
   return (
     <section className="border-b border-border bg-gradient-to-b from-blue-50 to-white">
@@ -113,12 +167,7 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
           </h1>
           <p className="text-gray-600">
             {type === 'DataBrowser'
-              ? 'Browse aggregate-level data contributed by All of Us research\n' +
-                '            participants. Data are derived from multiple data sources. To\n' +
-                '            protect participant privacy, we have removed personal identifiers,\n' +
-                '            rounded aggregate data to counts of 20, and only included summary\n' +
-                '            demographic information. Individual-level data are available for\n' +
-                '            analysis in the Researcher Workbench.'
+              ? 'Browse aggregate-level data contributed by All of Us research participants...'
               : 'Define your own data visualization parameters'}
           </p>
         </div>
@@ -135,7 +184,8 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
                 <ChevronDown className="ml-2 h-5 w-5" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle className="text-xl">
                   Select Research Cohorts
@@ -145,11 +195,12 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
                 </p>
               </DialogHeader>
 
+              {/* Search */}
               <div className="mb-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
                   <Input
-                    placeholder="Search cohorts..."
+                    placeholder="Search cohorts by name/description/author..."
                     value={cohortSearchQuery}
                     onChange={(e) => setCohortSearchQuery(e.target.value)}
                     className="pl-10"
@@ -157,14 +208,29 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
                 </div>
               </div>
 
-              <div className="max-h-96 space-y-3 overflow-y-auto">
-                {filteredCohorts.length > 0 ? (
-                  filteredCohorts.map((cohort) => {
+              {/* List */}
+              <div className="max-h-[460px] space-y-3 overflow-y-auto">
+                {loading ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Loading...
+                  </div>
+                ) : fetchError ? (
+                  <div className="p-8 text-center text-red-500">
+                    {fetchError}
+                  </div>
+                ) : cohortList.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No cohorts found
+                  </div>
+                ) : (
+                  cohortList.map((raw) => {
+                    const cohort = normalizeCohort(raw);
                     const isSelected = selectedCohorts.some(
                       (c) => c.id === cohort.id,
                     );
                     const isDisabled =
                       !isSelected && selectedCohorts.length >= 5;
+
                     return (
                       <div
                         key={cohort.id}
@@ -180,27 +246,57 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
                           <Checkbox
                             checked={isSelected}
                             disabled={isDisabled}
-                            onCheckedChange={() => handleCohortToggle(cohort)}
+                            onCheckedChange={() => handleCohortToggle(raw)}
                             className="mt-1"
                           />
                           <div className="flex-1">
-                            <div className="font-semibold text-foreground">
-                              {cohort.name}
+                            <div className="flex items-center justify-between">
+                              <div className="font-semibold text-foreground">
+                                {cohort.name}
+                              </div>
+                              <Badge variant="secondary" className="text-xs">
+                                {cohort.count?.toLocaleString?.() ?? 0}
+                              </Badge>
                             </div>
-                            <div className="mt-1 text-sm text-muted-foreground">
-                              {cohort.description}
+                            <div className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                              {cohort.description || 'No description'}
                             </div>
                           </div>
                         </div>
                       </div>
                     );
                   })
-                ) : (
-                  <div className="p-8 text-center text-muted-foreground">
-                    <Search className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                    No cohorts found matching "{cohortSearchQuery}"
-                  </div>
                 )}
+              </div>
+
+              {/* Pagination */}
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Showing {showingFrom}-{showingTo} of {totalItems}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safeCurrentPage === 1 || loading}
+                  >
+                    Prev
+                  </Button>
+                  <div className="text-sm font-medium">
+                    Page {safeCurrentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
+                    disabled={safeCurrentPage === totalPages || loading}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -227,7 +323,7 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
           </div>
         )}
 
-        {/* Collapsible overview shared on both pages */}
+        {/* Collapsible overview (기존 그대로) */}
         <div className="mb-6">
           <Button
             variant="outline"
