@@ -394,12 +394,58 @@ export default function MedicalDataBrowser() {
     try {
       setSummaryLoading(true);
       setSummaryError('');
+
       const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+
       const data = await getDomainSummary({
         keyword: optionalKeyword,
         cohortIds,
       });
-      setSummary(data);
+
+      // participant_count만 고정, concept_count는 최신값으로 갱신
+      setSummary((prev) => {
+        // 새 응답을 키 기준으로 보관
+        const nextByKey = new Map();
+        for (const row of data || []) {
+          if (!row || !row._tab_key) continue;
+          nextByKey.set(row._tab_key, row);
+        }
+
+        // prev 순서를 우선 보존하면서 병합
+        const merged = [];
+
+        // 1) 기존에 있던 키들: participant_count는 prev 유지, concept_count는 next로 갱신
+        for (const oldRow of prev || []) {
+          const key = oldRow?._tab_key;
+          if (!key) continue;
+
+          const fresh = nextByKey.get(key);
+          if (fresh) {
+            merged.push({
+              ...fresh,
+              participant_count:
+                typeof oldRow.participant_count === 'number'
+                  ? oldRow.participant_count
+                  : fresh.participant_count, // prev 없으면 fresh 사용
+              concept_count:
+                typeof fresh.concept_count === 'number'
+                  ? fresh.concept_count
+                  : oldRow.concept_count, // fresh 없으면 prev 유지
+            });
+            nextByKey.delete(key); // 처리됨
+          } else {
+            // 이번 응답에 없으면 전부 그대로 유지(참여자 수 고정, 컨셉 수도 이전 값 유지)
+            merged.push(oldRow);
+          }
+        }
+
+        // 2) 이번에 새로 들어온 키(이전엔 없던 것)는 그대로 추가
+        for (const [_, fresh] of nextByKey) {
+          merged.push(fresh);
+        }
+
+        return merged;
+      });
     } catch (e) {
       console.error(e);
       setSummary([]);
