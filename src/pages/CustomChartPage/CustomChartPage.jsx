@@ -51,17 +51,11 @@ export default function CustomChartPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto my-8 max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Custom Chart</h1>
-        <p className="text-gray-600">
-          Define your own data visualization parameters
-        </p>
-      </div>
-
       {/* 공통 헤더 (코호트 선택 + 개요) */}
       <CohortHeader
         selectedCohorts={selectedCohorts}
         setSelectedCohorts={setSelectedCohorts}
+        type={'CustomChart'}
       />
 
       {/* 페이지 본문: Custom Chart */}

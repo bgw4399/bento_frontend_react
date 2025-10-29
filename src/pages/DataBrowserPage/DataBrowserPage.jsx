@@ -497,30 +497,17 @@ export default function MedicalDataBrowser() {
   return (
     <div className="min-h-screen bg-background">
       <main>
-        <div className="mx-auto my-8 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h1 className="mb-2 text-2xl font-bold text-gray-900">
-            Data Browser
-          </h1>
-          <p className="text-gray-600">
-            Browse aggregate-level data contributed by All of Us research
-            participants. Data are derived from multiple data sources. To
-            protect participant privacy, we have removed personal identifiers,
-            rounded aggregate data to counts of 20, and only included summary
-            demographic information. Individual-level data are available for
-            analysis in the Researcher Workbench.
-          </p>
-        </div>
-
         <CohortHeader
           selectedCohorts={selectedCohorts}
           setSelectedCohorts={setSelectedCohorts}
+          type={'DataBrowser'}
         />
 
         {/* 🔎 검색바 + Analyze */}
-        <section className="border-b border-border">
+        <section className="">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="py-6">
-              <div className="mx-auto mb-4 flex max-w-4xl gap-4">
+            <div className="py-8">
+              <div className="mx-auto mb-8 flex gap-4">
                 <div className="flex items-center gap-2">
                   <Select
                     value={searchTarget}
@@ -551,13 +538,13 @@ export default function MedicalDataBrowser() {
                   />
                 </div>
                 <Button onClick={handleSearch} className="h-12 px-8">
-                  Analyze
+                  Search
                 </Button>
               </div>
 
               {/* 탭 */}
-              <div className="mb-4 flex items-center justify-center">
-                <div className="flex items-center space-x-8 overflow-x-auto">
+              <div className="flex w-full items-center justify-center">
+                <div className="grid w-full grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
                   {tabConfig.map((category) => {
                     const Icon = category.icon;
                     const isActive = activeTab === category.key;
@@ -574,7 +561,7 @@ export default function MedicalDataBrowser() {
                             : 'border border-border text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                       >
-                        <Icon className="h-5 w-5" />
+                        <Icon className="h-5 w-5 shrink-0" />
                         <div className="text-left">
                           <div className="font-semibold">{category.label}</div>
                           <div className="text-xs opacity-70">
@@ -583,13 +570,6 @@ export default function MedicalDataBrowser() {
                           <div className="text-xs opacity-70">
                             {category.participants.toLocaleString()}{' '}
                             participants
-                          </div>
-                        </div>
-                        <div className="group relative">
-                          <Info className="h-4 w-4 opacity-50 hover:opacity-100" />
-                          <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 max-w-xs -translate-x-1/2 transform whitespace-nowrap rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-                            {category.tooltip}
-                            <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 transform border-l-4 border-r-4 border-t-4 border-transparent border-t-popover"></div>
                           </div>
                         </div>
                       </button>
@@ -674,13 +654,6 @@ export default function MedicalDataBrowser() {
                       <div className="border-b border-border bg-muted/30 px-6 py-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                           {activeCategory?.label} List
-                          <div className="group relative">
-                            <Info className="h-4 w-4 opacity-50 hover:opacity-100" />
-                            <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 max-w-xs -translate-x-1/2 transform whitespace-nowrap rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-                              Click any item to view detailed analytics
-                              <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 transform border-l-4 border-r-4 border-t-4 border-transparent border-t-popover"></div>
-                            </div>
-                          </div>
                         </div>
                       </div>
 
@@ -690,7 +663,7 @@ export default function MedicalDataBrowser() {
                             return (
                               <div
                                 key={item.childId}
-                                className="px-6 py-3 pl-16 transition-colors hover:bg-muted/10"
+                                className="px-6 py-3 transition-colors hover:bg-muted/10"
                               >
                                 <div className="box-border flex w-full items-center gap-3">
                                   <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
@@ -734,51 +707,43 @@ export default function MedicalDataBrowser() {
                                   }`}
                                   onClick={() => setSelectedItem(item)}
                                 >
-                                  <div className="flex items-center gap-4">
-                                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
-                                      <span className="text-sm font-bold text-primary-foreground">
-                                        {startIndex + index + 1}
-                                      </span>
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                      <div className="mb-2 flex items-start justify-between">
-                                        <div>
-                                          <h4 className="mb-1 text-lg font-bold text-foreground">
-                                            {item.name}
-                                          </h4>
-                                          <div className="flex flex-wrap items-center gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="mb-2 flex items-start justify-between">
+                                      <div>
+                                        <h4 className="mb-1 text-lg font-bold text-foreground">
+                                          {startIndex + index + 1}. {item.name}
+                                        </h4>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {item.code}
+                                          </Badge>
+                                          {item.allSnuhIds.map((snuhId) => (
                                             <Badge
-                                              variant="outline"
+                                              key={snuhId}
+                                              variant="secondary"
                                               className="text-xs"
                                             >
-                                              {item.code}
+                                              {snuhId}
                                             </Badge>
-                                            {item.allSnuhIds.map((snuhId) => (
-                                              <Badge
-                                                key={snuhId}
-                                                variant="secondary"
-                                                className="text-xs"
-                                              >
-                                                {snuhId}
-                                              </Badge>
-                                            ))}
-                                          </div>
-                                        </div>
-                                        <div className="text-right">
-                                          <div className="text-xl font-bold text-primary">
-                                            {item.percentage.toFixed(1)}%
-                                          </div>
-                                          <div className="mt-1 text-sm text-muted-foreground">
-                                            {item.count.toLocaleString()}
-                                          </div>
+                                          ))}
                                         </div>
                                       </div>
-
-                                      <p className="mb-3 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                                        {item.description}
-                                      </p>
+                                      <div className="text-right">
+                                        <div className="text-xl font-bold text-primary">
+                                          {item.percentage.toFixed(1)}%
+                                        </div>
+                                        <div className="mt-1 text-sm text-muted-foreground">
+                                          {item.count.toLocaleString()}
+                                        </div>
+                                      </div>
                                     </div>
+
+                                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                                      {item.description}
+                                    </p>
                                   </div>
                                 </div>
                               </div>
@@ -808,19 +773,14 @@ export default function MedicalDataBrowser() {
                                 onClick={() => setSelectedItem(item)}
                               >
                                 <div className="flex items-center gap-4">
-                                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
-                                    <span className="text-sm font-bold text-primary-foreground">
-                                      {item.isParent
-                                        ? startIndex + index + 1
-                                        : ''}
-                                    </span>
-                                  </div>
-
                                   <div className="min-w-0 flex-1">
                                     <div className="mb-2 flex items-start justify-between">
                                       <div>
                                         <h4 className="mb-1 text-lg font-bold text-foreground">
-                                          {item.name}
+                                          {item.isParent
+                                            ? startIndex + index + 1
+                                            : ''}
+                                          . {item.name}
                                         </h4>
                                         <div className="flex items-center gap-2">
                                           <Badge
@@ -871,7 +831,7 @@ export default function MedicalDataBrowser() {
                                       </div>
                                     </div>
 
-                                    <p className="mb-3 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                                       {item.description}
                                     </p>
                                   </div>
