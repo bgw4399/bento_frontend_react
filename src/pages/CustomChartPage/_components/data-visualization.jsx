@@ -154,23 +154,23 @@ export function DataVisualization({
   const getChartOptions = () => {
     if (category === 'measurements') {
       return [
-        { key: 'values', label: 'Values Distribution' },
-        { key: 'age', label: 'Age Distribution' },
-        { key: 'sex', label: 'Sex Distribution' },
-        { key: 'sources', label: 'Data Sources' },
+        { key: 'values', label: 'Values' },
+        { key: 'age', label: 'Age' },
+        { key: 'sex', label: 'Sex' },
+        { key: 'sources', label: 'Sources' },
       ];
     } else if (category === 'drug-exposures') {
       return [
-        { key: 'age', label: 'Age Distribution' },
-        { key: 'sex', label: 'Sex Distribution' },
-        { key: 'sources', label: 'Data Sources' },
+        { key: 'age', label: 'Age' },
+        { key: 'sex', label: 'Sex' },
+        { key: 'sources', label: 'Sources' },
       ];
     } else {
       // conditions and procedures
       return [
-        { key: 'age', label: 'Age Distribution' },
-        { key: 'sex', label: 'Sex Distribution' },
-        { key: 'sources', label: 'Data Sources' },
+        { key: 'age', label: 'Age' },
+        { key: 'sex', label: 'Sex' },
+        { key: 'sources', label: 'Sources' },
       ];
     }
   };
@@ -570,9 +570,7 @@ export function DataVisualization({
       return (
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-card-foreground">
-              Sex Distribution
-            </CardTitle>
+            <CardTitle className="text-lg text-card-foreground">Sex</CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
               Gender breakdown across {selectedCohorts.length} cohort
               {selectedCohorts.length > 1 ? 's' : ''}
@@ -655,9 +653,7 @@ export function DataVisualization({
       return (
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-card-foreground">
-              Age Distribution
-            </CardTitle>
+            <CardTitle className="text-lg text-card-foreground">Age</CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
               Age groups across {selectedCohorts.length} cohort
               {selectedCohorts.length > 1 ? 's' : ''}
@@ -742,7 +738,7 @@ export function DataVisualization({
             <Card className="border-border bg-card">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-card-foreground">
-                  Source Concepts
+                  Sources
                 </CardTitle>
                 <CardDescription className="text-sm text-muted-foreground">
                   {selectedTreeNode
@@ -844,10 +840,15 @@ export function DataVisualization({
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg text-card-foreground">
-              Data Sources
+              Sources
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              Origin of the medical records
+              Individual health records often contain medical information that
+              means the same thing but may be recorded in many different ways.
+              The sources represent the many different ways that the standard
+              medical concept returned in the search results has been recorded
+              in patient records. The sources bar chart provides the top 10
+              source concepts from the All of Us data.
             </CardDescription>
           </CardHeader>
           <CardContent>
