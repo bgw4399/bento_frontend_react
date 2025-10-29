@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Database,
@@ -30,6 +30,7 @@ import {
 import { DataVisualization } from '../CustomChartPage/_components/data-visualization.jsx';
 import { TopChart } from './_components/top-chart.jsx';
 import { CohortHeader } from '../../components/Header/DataBrowserHeader.jsx';
+import { getDomainSummary } from '@/api/data-browser/domain-summary.js';
 
 // ====== MOCKS ======
 const mockSearchResults = {
@@ -298,39 +299,24 @@ const tabConfig = [
     label: 'Conditions',
     icon: Stethoscope,
     color: 'text-primary',
-    concepts: 28475,
-    participants: 354400,
-    tooltip:
-      'Medical conditions, diseases, and diagnoses recorded in patient records',
   },
   {
     key: 'drug-exposures',
     label: 'Drug Exposures',
     icon: Pill,
     color: 'text-accent',
-    concepts: 33233,
-    participants: 334180,
-    tooltip:
-      'Medications, prescriptions, and pharmaceutical treatments administered to patients',
   },
   {
     key: 'labs-measurements',
     label: 'Measurements',
     icon: FlaskConical,
     color: 'text-primary',
-    concepts: 22457,
-    participants: 356320,
-    tooltip: 'Laboratory test results, vital signs, and clinical measurements',
   },
   {
     key: 'procedures',
     label: 'Procedures',
     icon: Database,
     color: 'text-accent',
-    concepts: 34220,
-    participants: 332320,
-    tooltip:
-      'Medical procedures, surgeries, and clinical interventions performed',
   },
 ];
 
@@ -391,6 +377,52 @@ export default function MedicalDataBrowser() {
 
   const [expandedSnuhGroups, setExpandedSnuhGroups] = useState(new Set());
 
+  const [summary, setSummary] = useState([]); // API 결과 원본
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
+
+  // 탭 키 → summary row 매핑
+  const summaryByKey = useMemo(() => {
+    const map = {};
+    for (const row of summary) {
+      if (row && row._tab_key) map[row._tab_key] = row;
+    }
+    return map;
+  }, [summary]);
+
+  async function refreshSummary(optionalKeyword) {
+    try {
+      setSummaryLoading(true);
+      setSummaryError('');
+      const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+      const data = await getDomainSummary({
+        keyword: optionalKeyword,
+        cohortIds,
+      });
+      setSummary(data);
+    } catch (e) {
+      console.error(e);
+      setSummary([]);
+      setSummaryError('Failed to load domain summary');
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  // 최초 로드 & 코호트 변경 시 갱신
+  useEffect(() => {
+    refreshSummary(searchQuery); // keyword는 사실상 옵션이지만 붙여줌
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCohorts]);
+
+  // Search 버튼 누를 때 요약도 갱신
+  const handleSearch = () => {
+    setHasSearched(true);
+    setExpandedItems(new Set());
+    setCurrentPage(1);
+    refreshSummary(searchQuery);
+  };
+
   const toggleSnuhGroup = (itemId) => {
     setExpandedSnuhGroups((prev) => {
       const newSet = new Set(prev);
@@ -403,12 +435,6 @@ export default function MedicalDataBrowser() {
   useEffect(() => {
     setHasSearched(true);
   }, []);
-
-  const handleSearch = () => {
-    setHasSearched(true);
-    setExpandedItems(new Set());
-    setCurrentPage(1);
-  };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') handleSearch();
@@ -548,6 +574,12 @@ export default function MedicalDataBrowser() {
                   {tabConfig.map((category) => {
                     const Icon = category.icon;
                     const isActive = activeTab === category.key;
+                    const sumRow = summaryByKey[category.key];
+
+                    // 값이 없으면 그대로 '-' 출력
+                    const concepts = sumRow?.concept_count;
+                    const participants = sumRow?.participant_count;
+
                     return (
                       <button
                         key={category.key}
@@ -565,10 +597,15 @@ export default function MedicalDataBrowser() {
                         <div className="text-left">
                           <div className="font-semibold">{category.label}</div>
                           <div className="text-xs opacity-70">
-                            {category.concepts.toLocaleString()} concepts
+                            {typeof concepts === 'number'
+                              ? concepts.toLocaleString()
+                              : 0}{' '}
+                            concepts
                           </div>
                           <div className="text-xs opacity-70">
-                            {category.participants.toLocaleString()}{' '}
+                            {typeof participants === 'number'
+                              ? participants.toLocaleString()
+                              : 0}{' '}
                             participants
                           </div>
                         </div>
