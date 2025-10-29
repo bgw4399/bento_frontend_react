@@ -1,3 +1,4 @@
+// src/pages/DataBrowser/MedicalDataBrowser.jsx
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -7,7 +8,6 @@ import {
   Pill,
   FlaskConical,
   Stethoscope,
-  Info,
   Activity,
   TrendingUp,
   Grid3X3,
@@ -20,20 +20,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { DataVisualization } from '../CustomChartPage/_components/data-visualization.jsx';
 import { TopChart } from './_components/top-chart.jsx';
 import { CohortHeader } from '../../components/Header/DataBrowserHeader.jsx';
 import { getDomainSummary } from '@/api/data-browser/domain-summary.js';
 import { getDomainConcepts } from '@/api/data-browser/get-concept-list.js';
 
-// ====== MOCKS ======
 const tabConfig = [
   {
     key: 'conditions',
@@ -101,10 +93,8 @@ const mockCohorts = [
   },
 ];
 
-// ====== PAGE ======
 export default function MedicalDataBrowser() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchTarget, setSearchTarget] = useState('target'); // "target" | "source"
   const [searchLimit, setSearchLimit] = useState(50);
   const [hasSearched, setHasSearched] = useState(true);
   const [activeTab, setActiveTab] = useState('conditions');
@@ -115,14 +105,12 @@ export default function MedicalDataBrowser() {
 
   const [sortBy, setSortBy] = useState('default'); // "default" | "snuh"
   const [currentPage, setCurrentPage] = useState(1);
-
   const [expandedSnuhGroups, setExpandedSnuhGroups] = useState(new Set());
 
   const [summary, setSummary] = useState([]); // API 결과 원본
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState('');
 
-  // 개념 리스트(탭 본문)용 상태
   const [concepts, setConcepts] = useState([]);
   const [conceptsLoading, setConceptsLoading] = useState(false);
   const [conceptsError, setConceptsError] = useState('');
@@ -136,36 +124,27 @@ export default function MedicalDataBrowser() {
     return map;
   }, [summary]);
 
-  // 탭 api 호출
+  // 탭 요약 갱신
   async function refreshSummary(optionalKeyword) {
     try {
       setSummaryLoading(true);
       setSummaryError('');
-
       const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
-
       const data = await getDomainSummary({
         keyword: optionalKeyword,
         cohortIds,
       });
 
-      // participant_count만 고정, concept_count는 최신값으로 갱신
       setSummary((prev) => {
-        // 새 응답을 키 기준으로 보관
         const nextByKey = new Map();
         for (const row of data || []) {
           if (!row || !row._tab_key) continue;
           nextByKey.set(row._tab_key, row);
         }
-
-        // prev 순서를 우선 보존하면서 병합
         const merged = [];
-
-        // 1) 기존에 있던 키들: participant_count는 prev 유지, concept_count는 next로 갱신
         for (const oldRow of prev || []) {
           const key = oldRow?._tab_key;
           if (!key) continue;
-
           const fresh = nextByKey.get(key);
           if (fresh) {
             merged.push({
@@ -173,24 +152,18 @@ export default function MedicalDataBrowser() {
               participant_count:
                 typeof oldRow.participant_count === 'number'
                   ? oldRow.participant_count
-                  : fresh.participant_count, // prev 없으면 fresh 사용
+                  : fresh.participant_count,
               concept_count:
                 typeof fresh.concept_count === 'number'
                   ? fresh.concept_count
-                  : oldRow.concept_count, // fresh 없으면 prev 유지
+                  : oldRow.concept_count,
             });
-            nextByKey.delete(key); // 처리됨
+            nextByKey.delete(key);
           } else {
-            // 이번 응답에 없으면 전부 그대로 유지(참여자 수 고정, 컨셉 수도 이전 값 유지)
             merged.push(oldRow);
           }
         }
-
-        // 2) 이번에 새로 들어온 키(이전엔 없던 것)는 그대로 추가
-        for (const [_, fresh] of nextByKey) {
-          merged.push(fresh);
-        }
-
+        for (const [, fresh] of nextByKey) merged.push(fresh);
         return merged;
       });
     } catch (e) {
@@ -202,26 +175,21 @@ export default function MedicalDataBrowser() {
     }
   }
 
-  // 검색시, 컨셉 목록 불러오기
+  // 컨셉 리스트 갱신
   async function refreshConcepts() {
     try {
       setConceptsLoading(true);
       setConceptsError('');
 
-      // 탭의 participants(분모) 확보
       const participants = summaryByKey[activeTab]?.participant_count ?? null;
-
       const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
 
       const raw = await getDomainConcepts({
         tabKey: activeTab,
         keyword: searchQuery,
-        viewBy: searchTarget, // 'target' | 'source'
-        cohortIds, // 리스트 형태로 전달
+        cohortIds,
       });
 
-      // UI 모델로 변환
-      // 기존 목업 구조에 최대한 맞추되, 부족한 값은 '-' 처리
       const mapped = (raw || []).map((row, idx) => {
         const count =
           typeof row.total_participant_count === 'number'
@@ -231,38 +199,34 @@ export default function MedicalDataBrowser() {
         const pct =
           participants && participants > 0
             ? (count / participants) * 100
-            : null; // 분모 없으면 표시 시 '-'
+            : null;
 
-        // 간단 설명: vocabulary key들 한 줄로
         const vocabKeys = row.vocabulary_counts
           ? Object.keys(row.vocabulary_counts)
           : [];
 
         return {
-          // 리스트 키용
           id: row.concept_id || `row-${idx}`,
-          // 기존 렌더러에 맞춘 필드
-          conceptId: row.concept_id, // 숫자/문자 상관없이 그대로
-          code: row.concept_id ?? '-', // ✅ code 자리에 concept_id
-          name: row.concept_name ?? '-', // ✅ name 자리에 concept_name
-          snuhId: '-', // 단일 snuhId는 없으니 '-'(자식행에서 mapped_source_codes 노출)
-          allSnuhIds: row.mapped_source_codes || [], // 그룹/배지에 활용 가능
+          conceptId: row.concept_id,
+          code: row.concept_id ?? '-',
+          name: row.concept_name ?? '-',
+          snuhId: '-',
+          allSnuhIds: row.mapped_source_codes || [],
           count,
-          percentage: pct, // null이면 렌더 때 '-' 처리
+          percentage: pct,
           description: vocabKeys.length
             ? `Vocab: ${vocabKeys.join(', ')}`
             : '-',
 
-          // 그래프에 넘길 추가 원본 데이터
           mapped_source_codes: row.mapped_source_codes || [],
           descendent_concept: row.descendent_concept || [],
-          source: row.descendent_concept || [], // DataVisualization에서 source를 기대한다면 대비
+          source: row.descendent_concept || [],
           _raw: row,
         };
       });
 
       setConcepts(mapped);
-      setCurrentPage(1); // 검색/탭 변경 시 페이지 리셋
+      setCurrentPage(1);
     } catch (e) {
       console.error(e);
       setConcepts([]);
@@ -272,12 +236,9 @@ export default function MedicalDataBrowser() {
     }
   }
 
-  // 최초 + 코호트 변경 시 summary 갱신
+  // 최초 + 코호트 변경 시 summary 갱신 후 concepts 동기화
   useEffect(() => {
     refreshSummary(searchQuery);
-    // summary가 바뀌면 participants 달라질 수 있으니 concepts도 재계산
-    // (participant_count는 고정되지만, 처음 로드시엔 필요)
-    // summaryByKey가 계산된 다음 호출되도록 setTimeout 한 틱 뒤 호출
     setTimeout(() => refreshConcepts(), 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCohorts]);
@@ -288,21 +249,7 @@ export default function MedicalDataBrowser() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // 검색 기준 변경 시 개념 갱신
-  useEffect(() => {
-    refreshConcepts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTarget]);
-
-  // Search 버튼
-  const handleSearch = () => {
-    setHasSearched(true);
-    setExpandedItems(new Set());
-    setCurrentPage(1);
-    refreshSummary(searchQuery);
-    refreshConcepts();
-  };
-
+  // 요약 분모가 바뀌면 다시 계산
   const activeParticipants = summaryByKey[activeTab]?.participant_count ?? null;
   useEffect(() => {
     if (activeParticipants !== null) {
@@ -311,12 +258,20 @@ export default function MedicalDataBrowser() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeParticipants, activeTab]);
 
+  // 검색 버튼
+  const handleSearch = () => {
+    setHasSearched(true);
+    setExpandedItems(new Set());
+    setCurrentPage(1);
+    refreshSummary(searchQuery);
+    refreshConcepts();
+  };
+
   const toggleSnuhGroup = (itemId) => {
     setExpandedSnuhGroups((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemId)) newSet.delete(itemId);
-      else newSet.add(itemId);
-      return newSet;
+      const n = new Set(prev);
+      n.has(itemId) ? n.delete(itemId) : n.add(itemId);
+      return n;
     });
   };
 
@@ -328,33 +283,24 @@ export default function MedicalDataBrowser() {
     if (e.key === 'Enter') handleSearch();
   };
 
+  // 리스트 데이터 가공
   const currentData = (() => {
-    const data = concepts; // ✅ API 데이터 사용
+    const data = concepts;
 
-    // 검색창 필터(백엔드에서 이미 반영되지만, 클라이언트 추가 필터 허용하려면 유지)
+    // 클라이언트 추가 필터: 이름/설명/SNUH 코드 전부 포함 검색
     let filteredData = data;
     if (searchQuery.trim()) {
-      if (searchTarget === 'target') {
-        filteredData = data.filter(
-          (item) =>
-            (item.name ?? '-')
-              .toLowerCase()
-              .includes(searchQuery.toLowerCase()) ||
-            (item.description ?? '-')
-              .toLowerCase()
-              .includes(searchQuery.toLowerCase()),
-        );
-      } else {
-        // source 기준: mapped_source_codes 중 하나라도 포함되면 표시
-        filteredData = data.filter((item) =>
+      const q = searchQuery.toLowerCase();
+      filteredData = data.filter(
+        (item) =>
+          (item.name ?? '-').toLowerCase().includes(q) ||
+          (item.description ?? '-').toLowerCase().includes(q) ||
           (item.allSnuhIds || []).some((code) =>
-            (code || '').toLowerCase().includes(searchQuery.toLowerCase()),
+            (code || '').toLowerCase().includes(q),
           ),
-        );
-      }
+      );
     }
 
-    // 'snuh' 정렬(= SNUH ID 기준 보기)
     if (sortBy === 'snuh') {
       const flattened = [];
       const sortedParents = [...filteredData].sort((a, b) => {
@@ -376,7 +322,7 @@ export default function MedicalDataBrowser() {
             childId: `${parent.id}-${idx}`,
             snuhId: code,
             description: '-',
-            count: '-', // 데이터 없음 → 렌더에서 가드
+            count: '-', // 데이터 없음 → 렌더 가드
           }));
           flattened.push(...children);
         }
@@ -384,7 +330,6 @@ export default function MedicalDataBrowser() {
       return flattened;
     }
 
-    // 기본: OMOP 기준 (API는 이미 unique concept 단위라 group 없이 정렬만)
     const sorted = [...filteredData].sort((a, b) => {
       const ap = a.percentage ?? -1;
       const bp = b.percentage ?? -1;
@@ -411,34 +356,15 @@ export default function MedicalDataBrowser() {
           type={'DataBrowser'}
         />
 
-        {/* 🔎 검색바 + Analyze */}
+        {/* 🔎 검색바 */}
         <section className="">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="py-8">
               <div className="mx-auto mb-8 flex gap-4">
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={searchTarget}
-                    onValueChange={(v) => setSearchTarget(v)}
-                  >
-                    <SelectTrigger className="h-full w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="target">OMOP CDM</SelectItem>
-                      <SelectItem value="source">SNUH ID</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 transform text-muted-foreground" />
                   <Input
-                    placeholder={
-                      searchTarget === 'target'
-                        ? 'Search medical concepts, conditions, procedures...'
-                        : 'Search by SNUH ID...'
-                    }
+                    placeholder="Search medical concepts, conditions, procedures or SNUH code..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -457,8 +383,6 @@ export default function MedicalDataBrowser() {
                     const Icon = category.icon;
                     const isActive = activeTab === category.key;
                     const sumRow = summaryByKey[category.key];
-
-                    // 값이 없으면 그대로 '-' 출력
                     const concepts = sumRow?.concept_count;
                     const participants = sumRow?.participant_count;
 
@@ -511,7 +435,7 @@ export default function MedicalDataBrowser() {
                     <TrendingUp className="h-6 w-6 text-primary" />
                     {activeCategory?.label} Analytics
                   </h2>
-                  <div className="flex items-center gap-3"></div>
+                  <div className="flex items-center gap-3" />
                 </div>
                 <div className="rounded-xl border border-border bg-card p-6">
                   {(() => {
@@ -603,11 +527,8 @@ export default function MedicalDataBrowser() {
                               >
                                 <div className="box-border flex w-full items-center gap-3">
                                   <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-
-                                  {/* 가운데 영역: 폭 제한 + 수축 허용 */}
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center justify-between gap-3">
-                                      {/* 왼쪽(배지 + 텍스트) */}
                                       <div className="flex min-w-0 items-center gap-2">
                                         <Badge
                                           variant="outline"
@@ -615,78 +536,16 @@ export default function MedicalDataBrowser() {
                                         >
                                           {item.snuhId}
                                         </Badge>
-
                                         <span className="block truncate text-sm text-foreground">
                                           {item.description}
                                         </span>
                                       </div>
-
-                                      {/* 오른쪽 숫자: 줄어들지 않게 */}
                                       <span className="shrink-0 text-right text-sm font-medium text-muted-foreground">
                                         {typeof item.count === 'number'
                                           ? item.count.toLocaleString()
                                           : '-'}
                                       </span>
                                     </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          if (sortBy === 'default' && item.isGrouped) {
-                            return (
-                              <div key={item.conceptId}>
-                                <div
-                                  className={`cursor-pointer px-6 py-4 transition-colors ${
-                                    selectedItem?.conceptId === item.conceptId
-                                      ? 'border-r-4 border-primary bg-primary/10'
-                                      : 'hover:bg-muted/20'
-                                  }`}
-                                  onClick={() => setSelectedItem(item)}
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="mb-2 flex items-start justify-between">
-                                      <div>
-                                        <h4 className="mb-1 text-lg font-bold text-foreground">
-                                          {startIndex + index + 1}. {item.name}
-                                        </h4>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs"
-                                          >
-                                            {item.code}
-                                          </Badge>
-                                          {item.allSnuhIds.map((snuhId) => (
-                                            <Badge
-                                              key={snuhId}
-                                              variant="secondary"
-                                              className="text-xs"
-                                            >
-                                              {snuhId}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-xl font-bold text-primary">
-                                          {typeof item.percentage === 'number'
-                                            ? item.percentage.toFixed(1)
-                                            : '-'}
-                                          %
-                                        </div>
-                                        <div className="mt-1 text-sm text-muted-foreground">
-                                          {typeof item.count === 'number'
-                                            ? item.count.toLocaleString()
-                                            : '-'}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                                      {item.description}
-                                    </p>
                                   </div>
                                 </div>
                               </div>
@@ -981,8 +840,7 @@ export default function MedicalDataBrowser() {
                                 </p>
 
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-6"></div>
-
+                                  <div className="flex items-center gap-6" />
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -999,7 +857,13 @@ export default function MedicalDataBrowser() {
                                   >
                                     View Analytics
                                     <ChevronDown
-                                      className={`h-4 w-4 transition-transform ${expandedItems.has(`${activeTab}-${item.conceptId}`) ? 'rotate-180' : ''}`}
+                                      className={`h-4 w-4 transition-transform ${
+                                        expandedItems.has(
+                                          `${activeTab}-${item.conceptId}`,
+                                        )
+                                          ? 'rotate-180'
+                                          : ''
+                                      }`}
                                     />
                                   </Button>
                                 </div>
@@ -1119,8 +983,7 @@ export default function MedicalDataBrowser() {
                               </p>
 
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-6"></div>
-
+                                <div className="flex items-center gap-6" />
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1137,7 +1000,13 @@ export default function MedicalDataBrowser() {
                                 >
                                   View Analytics
                                   <ChevronDown
-                                    className={`h-4 w-4 transition-transform ${expandedItems.has(`${activeTab}-${item.id}`) ? 'rotate-180' : ''}`}
+                                    className={`h-4 w-4 transition-transform ${
+                                      expandedItems.has(
+                                        `${activeTab}-${item.id}`,
+                                      )
+                                        ? 'rotate-180'
+                                        : ''
+                                    }`}
                                   />
                                 </Button>
                               </div>
