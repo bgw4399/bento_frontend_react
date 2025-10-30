@@ -53,53 +53,13 @@ const tabConfig = [
   },
 ];
 
-// 초기 선택(부모에서 상태만 필요)
-const mockCohorts = [
-  {
-    id: 1,
-    name: 'All Participants',
-    description: 'Complete dataset of all participants',
-    count: 354400,
-  },
-  {
-    id: 2,
-    name: 'Adult Cohort (18-65)',
-    description: 'Participants aged 18 to 65 years',
-    count: 287500,
-  },
-  {
-    id: 3,
-    name: 'Senior Cohort (65+)',
-    description: 'Participants aged 65 and older',
-    count: 89200,
-  },
-  {
-    id: 4,
-    name: 'Pediatric Cohort (<18)',
-    description: 'Participants under 18 years old',
-    count: 12300,
-  },
-  {
-    id: 5,
-    name: 'Diabetes Cohort',
-    description: 'Participants with diabetes diagnosis',
-    count: 45600,
-  },
-  {
-    id: 6,
-    name: 'Cardiovascular Cohort',
-    description: 'Participants with heart conditions',
-    count: 67800,
-  },
-];
-
 export default function MedicalDataBrowser() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLimit, setSearchLimit] = useState(50);
   const [hasSearched, setHasSearched] = useState(true);
   const [activeTab, setActiveTab] = useState('conditions');
   const [expandedItems, setExpandedItems] = useState(new Set());
-  const [selectedCohorts, setSelectedCohorts] = useState([mockCohorts[0]]);
+  const [selectedCohorts, setSelectedCohorts] = useState([]);
   const [layoutMode, setLayoutMode] = useState('split'); // "split" | "traditional"
   const [selectedItem, setSelectedItem] = useState(null);
 

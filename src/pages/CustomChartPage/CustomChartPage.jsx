@@ -9,14 +9,7 @@ import { DataVisualization } from './_components/data-visualization.jsx';
 import { History, Plus, X } from 'lucide-react';
 
 export default function CustomChartPage() {
-  const [selectedCohorts, setSelectedCohorts] = useState([
-    {
-      id: 1,
-      name: 'All Participants',
-      description: 'Complete dataset of all participants',
-      count: 354400,
-    },
-  ]);
+  const [selectedCohorts, setSelectedCohorts] = useState([]);
 
   const [customChartXAxis, setCustomChartXAxis] = useState('');
   const [customChartYAxis, setCustomChartYAxis] = useState('');
