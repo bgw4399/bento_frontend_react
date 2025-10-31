@@ -41,12 +41,17 @@ export function TopChart({ data }) {
             <YAxis
               type="category"
               dataKey="name"
-              interval={0}                 // ✅ 모든 라벨 강제 노출
-              width={140}                  // ✅ 라벨 폭 확보
+              interval={0}
+              width={140}
               axisLine={false}
               tickLine={false}
+              tickFormatter={(value) => {
+                const maxLen = 14; // 한글 7~8자 정도
+                return value.length > maxLen ? value.slice(0, maxLen) + '…' : value;
+              }}
               tick={{ fontSize: 12, fill: 'hsl(var(--foreground, 0 0% 10%))' }}
             />
+
             <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={28}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
