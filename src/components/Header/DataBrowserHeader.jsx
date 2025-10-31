@@ -493,6 +493,40 @@ function cumLeft(values, idx) {
   return s;
 }
 
+/** 유틸: 날짜 계산 */
+const formatDate = (v) => {
+  if (!v) return '';
+  // "YYYY-MM-DD HH:mm:ss.sss" → "YYYY-MM-DDTHH:mm:ss.sss"
+  const iso = v.includes('T') ? v : v.replace(' ', 'T');
+  let d = new Date(iso);
+
+  if (Number.isNaN(d.getTime())) {
+    // Safari 등 호환 위해 수동 파싱
+    try {
+      const [datePart = '', timePart = ''] = v.split(' ');
+      const [yy = '1970', mm = '1', dd = '1'] = datePart.split('-');
+      const [HH = '0', MM = '0', SSms = '0'] = timePart.split(':');
+      const [SS = '0', MS = '0'] = SSms.split('.');
+      d = new Date(
+        Number(yy),
+        Number(mm) - 1,
+        Number(dd),
+        Number(HH),
+        Number(MM),
+        Number(SS),
+        Number(MS || 0),
+      );
+    } catch {
+      return v; // 최후 fallback: 원문 표기
+    }
+  }
+
+  // 로케일 고정 원하면 'ko-KR' 유지
+  return d.toLocaleString('ko-KR');
+};
+
+const shortId = (v) => (v ? String(v).slice(0, 8) : '');
+
 export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
   const [isCohortModalOpen, setIsCohortModalOpen] = useState(false);
   const [cohortSearchQuery, setCohortSearchQuery] = useState('');
@@ -660,20 +694,28 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
     const name = (raw && raw.name) || `(no name: ${id})`;
     const description = (raw && raw.description) || '';
     const count = n0(raw && (raw.count ?? raw.size ?? raw.participants));
+
+    const author = raw?.author ?? null;
+    const created_at = raw?.created_at ?? null;
+    const updated_at = raw?.updated_at ?? null;
+
     return {
       id,
       name,
       description,
       count,
-      gender: (raw && raw.gender) || null,
-      mortality: (raw && raw.mortality) || null,
-      age: (raw && raw.age) || null,
-      visitType: (raw && raw.visitType) || null,
-      visitCount: (raw && raw.visitCount) || null,
-      topTenDrugs: (raw && raw.topTenDrugs) || null,
-      topTenConditions: (raw && raw.topTenConditions) || null,
-      topTenProcedures: (raw && raw.topTenProcedures) || null,
-      topTenMeasurements: (raw && raw.topTenMeasurements) || null,
+      author,
+      created_at,
+      updated_at,
+      gender: raw?.gender ?? null,
+      mortality: raw?.mortality ?? null,
+      age: raw?.age ?? null,
+      visitType: raw?.visitType ?? null,
+      visitCount: raw?.visitCount ?? null,
+      topTenDrugs: raw?.topTenDrugs ?? null,
+      topTenConditions: raw?.topTenConditions ?? null,
+      topTenProcedures: raw?.topTenProcedures ?? null,
+      topTenMeasurements: raw?.topTenMeasurements ?? null,
     };
   };
 
@@ -844,9 +886,7 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
 
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle className="text-xl">
-                  Select Research Cohorts
-                </DialogTitle>
+                <DialogTitle className="text-xl">Select Cohorts</DialogTitle>
                 <p className="text-sm text-muted-foreground">
                   Select up to 5 cohorts for comparison
                 </p>
@@ -908,11 +948,16 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
                                 <div className="font-semibold text-foreground">
                                   {cohort.name}
                                 </div>
-                                <Badge variant="secondary" className="text-xs">
-                                  {cohort.count && cohort.count.toLocaleString
-                                    ? cohort.count.toLocaleString()
-                                    : 0}
-                                </Badge>
+                                <div className="mt-1 text-right text-xs leading-tight text-muted-foreground">
+                                  {cohort.author && (
+                                    <div>Author: {shortId(cohort.author)}</div>
+                                  )}
+                                  {cohort.created_at && (
+                                    <div>
+                                      Created: {formatDate(cohort.created_at)}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               <div className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                                 {cohort.description || 'No description'}
