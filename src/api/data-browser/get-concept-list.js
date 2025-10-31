@@ -19,6 +19,7 @@ export async function getDomainConcepts({
   tabKey,
   keyword = '',
   cohortIds = [],
+  page = 1
 }) {
   const baseURL = import.meta.env.VITE_PUBLIC_API_URI || '';
 
@@ -35,6 +36,8 @@ export async function getDomainConcepts({
   if (keyword && keyword.trim()) {
     params.keyword = keyword.trim();
   }
+
+  params.page = Math.max(0, Number(page) - 1);
 
   try {
     const { data } = await axios.get(url, {

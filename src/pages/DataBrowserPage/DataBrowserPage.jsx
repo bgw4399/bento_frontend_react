@@ -25,6 +25,7 @@ import { CohortHeader } from '../../components/Header/DataBrowserHeader.jsx';
 import { getDomainSummary } from '@/api/data-browser/domain-summary.js';
 import { getDomainConcepts } from '@/api/data-browser/get-concept-list.js';
 import { getConceptDetails } from '@/api/data-browser/get-concept-detail.js';
+import { getMeasurementValues } from '@/api/data-browser/get-measurement-values.js';
 
 const toNum = (v) => {
   if (v == null) return 0;
@@ -333,13 +334,18 @@ export default function MedicalDataBrowser() {
       // 이미 불러온 적 있으면 다시 안 불러옴 (캐시)
       if (detailsByKey[key]) return;
 
-      const data = await getConceptDetails({
-        domain,
-        conceptId: item.conceptId ?? item.id,
-        cohortIds,
-      });
-
-      setDetailsByKey((prev) => ({ ...prev, [key]: data }));
+      const conceptId = item.conceptId ?? item.id;
+           if (domain === 'measurements') {
+               // demographics + values 병렬 호출
+                 const [demo, values] = await Promise.all([
+                   getConceptDetails({ domain, conceptId, cohortIds }),
+                   getMeasurementValues({ conceptId, cohortIds }),
+                 ]);
+               setDetailsByKey((prev) => ({ ...prev, [key]: { ...demo, values } }));
+             } else {
+               const demo = await getConceptDetails({ domain, conceptId, cohortIds });
+               setDetailsByKey((prev) => ({ ...prev, [key]: demo }));
+             }
     } catch (e) {
       console.error(e);
       setDetailsError('Failed to load concept details');
@@ -435,34 +441,83 @@ export default function MedicalDataBrowser() {
     });
 
     if (sortBy === 'snuh') {
-      const flattened = [];
-      const sortedParents = [...enriched].sort((a, b) => {
+      // 1) SNUH ID별 "부모 행"을 평평하게 만든다
+      const parents = [];
+      for (const item of enriched) {
+        const allSnuhIds = Array.isArray(item.allSnuhIds) && item.allSnuhIds.length
+          ? item.allSnuhIds
+          : (item.snuhId ? [item.snuhId] : ['-']);
+
+        for (const code of allSnuhIds) {
+          const cnt = getSnuhCount(item.snuhIdCount, code) || item.snuhCount || 0;
+          const perc =
+            participants > 0 && typeof cnt === 'number'
+              ? (cnt / participants) * 100
+              : null;
+
+          parents.push({
+            ...item,
+            id: `${item.id}::${code}`,     // 고유 ID (conceptId + SNUH ID)
+            snuhId: code ?? '-',
+            allSnuhIds,                    // related 토글용 전체 묶음 유지
+            relatedCount: Math.max(0, allSnuhIds.length - 1),
+            count: cnt,
+            percentage: perc,
+            isParent: true,
+            isChild: false,
+          });
+        }
+      }
+
+      // 2) 정렬: % ↓, count ↓, 이름 ↑, snuhId ↑
+      parents.sort((a, b) => {
         const ap = a.percentage ?? -1;
         const bp = b.percentage ?? -1;
         if (bp !== ap) return bp - ap;
-        if (b.count !== a.count) return b.count - a.count;
-        return (a.name ?? '').localeCompare(b.name ?? '');
+        if ((b.count ?? -1) !== (a.count ?? -1)) return (b.count ?? 0) - (a.count ?? 0);
+        const nameCmp = (a.name ?? '').localeCompare(b.name ?? '');
+        if (nameCmp !== 0) return nameCmp;
+        return (a.snuhId ?? '').localeCompare(b.snuhId ?? '');
       });
 
-      for (const parent of sortedParents) {
-        const parentKey = `${activeTab}-${parent.id}`;
-        const expanded = expandedSnuhGroups.has(parentKey);
-        flattened.push({ ...parent, isParent: true, _expanded: expanded });
+      // 3) 펼침 상태에 따라 "자식 행"을 바로 뒤에 삽입
+      const flattened = [];
+      for (const parent of parents) {
+        flattened.push(parent);
 
-        if (expanded) {
-          // 자식들도 동일 분모로 계산: 여기선 부모의 snuhCount를 그대로 노출(요구사항)
-          const children = (parent.allSnuhIds || []).map((code, idx) => ({
+        const expandKey = `${activeTab}-${parent.id}`;
+        const isExpanded = expandedSnuhGroups.has(expandKey);
+        if (!isExpanded) continue;
+
+        const childrenCodes = (parent.allSnuhIds || []).filter((c) => c !== parent.snuhId);
+
+        for (let i = 0; i < childrenCodes.length; i++) {
+          const code = childrenCodes[i];
+          const childCount = getSnuhCount(parent.snuhIdCount, code) || parent.count;
+
+          flattened.push({
             isChild: true,
+            isParent: false,
             parentId: parent.id,
-            childId: `${parent.id}-${idx}`,
+            childId: `${parent.id}--${code}`,
+            id: `${parent.id}--child--${code}`,  // 렌더 키 안정화
+            name: parent.name,
+            code: parent.code,
             snuhId: code,
-            count: parent.snuhCount ?? 0, // ← vocabulary_counts 첫 숫자
-          }));
-          flattened.push(...children);
+            allSnuhIds: parent.allSnuhIds,       // 정보 유지
+            count: childCount,                    // 요구사항: 부모 분모 그대로/또는 개별 카운트
+            percentage:
+              participants > 0 && typeof childCount === 'number'
+                ? (childCount / participants) * 100
+                : null,
+            _raw: parent._raw,
+          });
         }
       }
+
       return flattened;
     }
+
 
 // OMOP 기본 정렬
     const sorted = [...enriched].sort((a, b) => {
@@ -990,7 +1045,7 @@ export default function MedicalDataBrowser() {
                                       // ✅ 펼침/접힘 상태 토글
                                       setExpandedItems((prev) => {
                                         const n = new Set(prev);
-                                        const key = `${activeTab}-${item.conceptId}`;
+                                        const key = `${activeTab}-${item.id}`;
                                         n.has(key) ? n.delete(key) : n.add(key);
                                         return n;
                                       });
@@ -1135,7 +1190,7 @@ export default function MedicalDataBrowser() {
                                     // ✅ 펼침/접힘 상태 토글
                                     setExpandedItems((prev) => {
                                       const n = new Set(prev);
-                                      const key = `${activeTab}-${item.conceptId}`;
+                                      const key = `${activeTab}-${item.id}`;
                                       n.has(key) ? n.delete(key) : n.add(key);
                                       return n;
                                     });
