@@ -2,24 +2,44 @@ import axios from 'axios';
 
 const API_URI = import.meta.env.VITE_PUBLIC_API_URI;
 
-// 서버 → 탭 키 매핑(유연 매핑)
+// 서버 → UI 탭 키 매핑 (정규화)
 const DOMAIN_KEY_MAP = {
-  conditions: 'conditions',
-  condition: 'conditions',
-  drugs: 'drug-exposures',
-  drug: 'drug-exposures',
-  measurements: 'labs-measurements',
-  measurement: 'labs-measurements',
-  labs: 'labs-measurements',
-  procedures: 'procedures',
-  procedure: 'procedures',
+  // Conditions
+  'conditions': 'conditions',
+  'condition': 'conditions',
+  'condition-occurrence': 'conditions',
+  'condition_occurrence': 'conditions',
+
+  // Drugs
+  'drugs': 'drugs',
+  'drug': 'drugs',
+  'drug-exposures': 'drugs',
+  'drug_exposures': 'drugs',
+  'drug-exposure': 'drugs',
+  'drug_exposure': 'drugs',
+
+  // Measurements
+  'measurements': 'measurements',
+  'measurement': 'measurements',
+  'labs-measurements': 'measurements',
+  'labs_measurements': 'measurements',
+  'measurement-occurrence': 'measurements',
+  'measurement_occurrence': 'measurements',
+
+  // Procedures
+  'procedures': 'procedures',
+  'procedure': 'procedures',
+  'procedure-occurrence': 'procedures',
+  'procedure_occurrence': 'procedures',
 };
 
 function normalizeDomainKey(rawKey) {
   if (!rawKey) return rawKey;
-  const k = String(rawKey).toLowerCase().replace(/\s+/g, '-');
-  return DOMAIN_KEY_MAP[k] || rawKey;
+  // 공백/언더스코어를 하이픈으로 통일하고 소문자화
+  const k = String(rawKey).toLowerCase().replace(/[\s_]+/g, '-');
+  return DOMAIN_KEY_MAP[k] || k;
 }
+
 
 /**
  * 도메인 요약 가져오기 (GET 방식)

@@ -34,13 +34,13 @@ const tabConfig = [
     color: 'text-primary',
   },
   {
-    key: 'drug-exposures',
+    key: 'drugs',
     label: 'Drug Exposures',
     icon: Pill,
     color: 'text-accent',
   },
   {
-    key: 'labs-measurements',
+    key: 'measurements',
     label: 'Measurements',
     icon: FlaskConical,
     color: 'text-primary',
@@ -324,6 +324,11 @@ export default function MedicalDataBrowser() {
     fetchConceptDetailsFor(selectedItem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedCohorts])
+
+  useEffect(() => {
+    setSelectedItem(null);
+    setExpandedItems(new Set());
+  }, [activeTab]);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') handleSearch();
@@ -782,7 +787,8 @@ export default function MedicalDataBrowser() {
                                       category={domain}
                                       view={layoutMode}
                                       selectedCohorts={selectedCohorts}
-                                      details={details} // ✅ API 결과 전달
+                                      // getDomainConcepts row의 원본을 함께 내려준다
+                                      details={details ? { ...details, concept: selectedItem?._raw } : { concept: selectedItem?._raw }}
                                     />
                                   </>
                                 );
@@ -939,13 +945,11 @@ export default function MedicalDataBrowser() {
                                     >
                                       <DataVisualization
                                         selectedItem={item}
-                                        category={
-                                          activeTab === 'labs-measurements'
-                                            ? 'measurements'
-                                            : activeTab
-                                        }
+                                        category={activeTab === 'labs-measurements' ? 'measurements' : activeTab}
                                         view={layoutMode}
                                         selectedCohorts={selectedCohorts}
+                                        // [ADD] 트리 소스: 리스트 행의 원본 row를 내려준다
+                                        details={{ concept: item?._raw }}
                                       />
                                     </div>
                                   </div>
