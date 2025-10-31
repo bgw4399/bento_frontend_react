@@ -1,4 +1,3 @@
-// src/pages/DataBrowser/MedicalDataBrowser.jsx
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -147,22 +146,26 @@ export default function MedicalDataBrowser() {
       const raw = await getDomainConcepts({
         tabKey: activeTab, // e.g. 'conditions'
         keyword: searchQuery, // 검색창 입력값
-        cohortIds: selectedCohorts.map((c) => c.id),
+        cohortIds,
       });
 
+      // refreshConcepts() 내부 매핑 부분
+      const toNum = (v) => {
+        if (v == null) return 0;
+        const n = typeof v === 'string' ? Number(v.replaceAll(',', '')) : v;
+        return Number.isFinite(n) ? n : 0;
+      };
+
       const mapped = (raw || []).map((row, idx) => {
-        const count =
-          typeof row.total_participant_count === 'number'
-            ? row.total_participant_count
-            : 0;
+        const count = toNum(
+          row.total_participant_count ?? row.person_count ?? row.count
+        );
 
         const pct =
-          participants && participants > 0
-            ? (count / participants) * 100
-            : null;
+          participants && participants > 0 ? (count / participants) * 100 : null;
 
-        const vocabKeys = row.vocabulary_counts
-          ? Object.keys(row.vocabulary_counts)
+        const snuhList = Array.isArray(row.mapped_source_codes)
+          ? row.mapped_source_codes.filter(Boolean)
           : [];
 
         return {
@@ -170,20 +173,18 @@ export default function MedicalDataBrowser() {
           conceptId: row.concept_id,
           code: row.concept_id ?? '-',
           name: row.concept_name ?? '-',
-          snuhId: '-',
-          allSnuhIds: row.mapped_source_codes || [],
+          snuhId: snuhList[0] ?? '-',
+          allSnuhIds: snuhList,
           count,
           percentage: pct,
-          description: vocabKeys.length
-            ? `Vocab: ${vocabKeys.join(', ')}`
-            : '-',
-
-          mapped_source_codes: row.mapped_source_codes || [],
+          mapped_source_codes: snuhList,
           descendent_concept: row.descendent_concept || [],
           source: row.descendent_concept || [],
           _raw: row,
         };
       });
+
+
 
       setConcepts(mapped);
       setCurrentPage(1);
@@ -247,14 +248,13 @@ export default function MedicalDataBrowser() {
   const currentData = (() => {
     const data = concepts;
 
-    // 클라이언트 추가 필터: 이름/설명/SNUH 코드 전부 포함 검색
+    // 클라이언트 추가 필터: 이름/SNUH 코드 포함 검색 (description 제거)
     let filteredData = data;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filteredData = data.filter(
         (item) =>
           (item.name ?? '-').toLowerCase().includes(q) ||
-          (item.description ?? '-').toLowerCase().includes(q) ||
           (item.allSnuhIds || []).some((code) =>
             (code || '').toLowerCase().includes(q),
           ),
@@ -281,7 +281,6 @@ export default function MedicalDataBrowser() {
             parentId: parent.id,
             childId: `${parent.id}-${idx}`,
             snuhId: code,
-            description: '-',
             count: '-', // 데이터 없음 → 렌더 가드
           }));
           flattened.push(...children);
@@ -400,19 +399,12 @@ export default function MedicalDataBrowser() {
                 <div className="rounded-xl border border-border bg-card p-6">
                   {(() => {
                     const chartData = concepts
-                      .filter(
-                        (d) =>
-                          typeof d.count === 'number' &&
-                          typeof d.percentage === 'number',
-                      )
-                      .sort(
-                        (a, b) => (b.percentage ?? -1) - (a.percentage ?? -1),
-                      )
+                      .filter((d) => typeof d.count === 'number' && d.name)
+                      .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
                       .slice(0, 10)
                       .map((d) => ({
                         name: d.name ?? '-',
                         count: d.count,
-                        percentage: d.percentage,
                       }));
                     return <TopChart data={chartData} />;
                   })()}
@@ -496,9 +488,6 @@ export default function MedicalDataBrowser() {
                                         >
                                           {item.snuhId}
                                         </Badge>
-                                        <span className="block truncate text-sm text-foreground">
-                                          {item.description}
-                                        </span>
                                       </div>
                                       <span className="shrink-0 text-right text-sm font-medium text-muted-foreground">
                                         {typeof item.count === 'number'
@@ -593,10 +582,6 @@ export default function MedicalDataBrowser() {
                                         </div>
                                       </div>
                                     </div>
-
-                                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                                      {item.description}
-                                    </p>
                                   </div>
                                 </div>
                               </div>
@@ -722,9 +707,6 @@ export default function MedicalDataBrowser() {
                                     <Badge variant="outline">
                                       {item.snuhId}
                                     </Badge>
-                                    <span className="font-medium text-foreground">
-                                      {item.description}
-                                    </span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
@@ -794,10 +776,6 @@ export default function MedicalDataBrowser() {
                                     </div>
                                   </div>
                                 </div>
-
-                                <p className="mb-4 leading-relaxed text-muted-foreground">
-                                  {item.description}
-                                </p>
 
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-6" />
@@ -937,10 +915,6 @@ export default function MedicalDataBrowser() {
                                   </div>
                                 </div>
                               </div>
-
-                              <p className="mb-4 leading-relaxed text-muted-foreground">
-                                {item.description}
-                              </p>
 
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-6" />
