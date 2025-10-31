@@ -146,7 +146,7 @@ export function DataVisualization({
   useEffect(() => setSelectedChart(defaultChart), [defaultChart, selectedItem]);
 
   /* ===============================
-     라벨/정렬 유틸
+     라벨 유틸
   ================================= */
   const cohortLabel = (key) => {
     if (key === 'all') return 'All';
@@ -162,7 +162,7 @@ export function DataVisualization({
     });
 
   /* ===============================
-     Values 탭 상태 (코호트1 선택 + 유닛 선택)
+     Values 탭 상태 (다중 코호트 동시 표시)
   ================================= */
   const valuesObj = details?.values || null;
   const normalizedValues = useMemo(
@@ -171,58 +171,87 @@ export function DataVisualization({
     [valuesObj],
   );
 
-  const availableKeys = normalizedValues.keys || [];
-  const defaultValuesKey = useMemo(
-    () => (availableKeys.includes('all') ? 'all' : availableKeys[0] || ''),
-    [availableKeys],
-  );
-  const [activeValuesKey, setActiveValuesKey] = useState(defaultValuesKey);
-  useEffect(() => setActiveValuesKey(defaultValuesKey), [defaultValuesKey, selectedItem]);
+  // 실제 표시할 코호트 키들(모두)
+  const valueKeys = normalizedValues.keys || [];
 
-  const units = useMemo(() => {
-    const unitSet =
-      normalizedValues.byKey?.[activeValuesKey]?.units || new Set();
-    const arr = Array.from(unitSet);
+  // 단위: 모든 코호트의 유닛 합집합
+  const unitsAcross = useMemo(() => {
+    const set = new Set();
+    valueKeys.forEach((k) => {
+      const units = normalizedValues.byKey?.[k]?.units;
+      if (units) units.forEach((u) => set.add(u));
+    });
+    const arr = Array.from(set);
     return arr.length ? arr : ['No unit'];
-  }, [normalizedValues, activeValuesKey]);
+  }, [normalizedValues, valueKeys]);
 
-  const [selectedUnit, setSelectedUnit] = useState(units[0]);
+  const [selectedUnit, setSelectedUnit] = useState(unitsAcross[0]);
   useEffect(() => {
-    if (!units.includes(selectedUnit)) setSelectedUnit(units[0]);
-  }, [units, selectedUnit]);
+    if (!unitsAcross.includes(selectedUnit)) {
+      setSelectedUnit(unitsAcross[0]);
+    }
+  }, [unitsAcross, selectedUnit]);
 
-  // Values 범위→성별 카운트 → 3개의 차트용 데이터 분리
-  const { maleData, femaleData, otherData, totals } = useMemo(() => {
-    if (!valuesObj) return { maleData: [], femaleData: [], otherData: [], totals: { m:0,f:0,o:0 } };
-    const unitNode =
-      normalizedValues.byKey?.[activeValuesKey]?.byUnit?.[selectedUnit];
-    if (!unitNode) return { maleData: [], femaleData: [], otherData: [], totals: { m:0,f:0,o:0 } };
+  // Values: 다중 코호트 → 범위별로 코호트 막대 나란히
+  const {
+    maleRows,
+    femaleRows,
+    otherRows,
+    cohortsForLegend,
+    totalsByCohort,
+  } = useMemo(() => {
+    const cohortsForLegend = valueKeys.map((k) => cohortLabel(k));
 
-    const ranges = sortRanges(Array.from(unitNode.ranges.keys()));
-    const maleData = [];
-    const femaleData = [];
-    const otherData = [];
-    let m=0, f=0, o=0;
+    // 모든 코호트의 범위를 합집합으로 모으기
+    const allRanges = new Set();
+    valueKeys.forEach((k) => {
+      const unitNode = normalizedValues.byKey?.[k]?.byUnit?.[selectedUnit];
+      if (!unitNode) return;
+      unitNode.ranges.forEach((_, r) => allRanges.add(r));
+    });
+    const ranges = sortRanges(Array.from(allRanges));
 
-    for (const range of ranges) {
-      const bucket = unitNode.ranges.get(range) || { byGender: new Map(), total: 0 };
-      const g = (key) =>
+    // 각 성별 차트용 행 구성
+    const maleRows = ranges.map((r) => ({ name: r }));
+    const femaleRows = ranges.map((r) => ({ name: r }));
+    const otherRows = ranges.map((r) => ({ name: r }));
+
+    // 코호트별 합계
+    const totalsByCohort = {};
+    valueKeys.forEach((k, idx) => {
+      const label = cohortLabel(k);
+      totalsByCohort[label] = { m: 0, f: 0, o: 0 };
+
+      const unitNode = normalizedValues.byKey?.[k]?.byUnit?.[selectedUnit];
+      // 해당 코호트가 선택된 단위를 갖지 않으면 0으로
+      const getBucket = (range) =>
+        unitNode?.ranges?.get(range) || { byGender: new Map(), total: 0 };
+      const getG = (bucket, key) =>
         toNum(
           bucket.byGender.get(key) ??
           bucket.byGender.get(key?.toUpperCase?.()) ??
-          bucket.byGender.get(key?.toLowerCase?.())
+          bucket.byGender.get(key?.toLowerCase?.()),
         );
-      const male = g('MALE') || g('Male') || g('male') || 0;
-      const female = g('FEMALE') || g('Female') || g('female') || 0;
-      const other = Math.max(0, toNum(bucket.total) - (male + female));
 
-      maleData.push({ name: range, count: male });
-      femaleData.push({ name: range, count: female });
-      otherData.push({ name: range, count: other });
-      m+=male; f+=female; o+=other;
-    }
-    return { maleData, femaleData, otherData, totals: { m, f, o } };
-  }, [valuesObj, normalizedValues, activeValuesKey, selectedUnit]);
+      ranges.forEach((range, i) => {
+        const b = getBucket(range);
+        const male = getG(b, 'MALE') || getG(b, 'Male') || getG(b, 'male') || 0;
+        const female =
+          getG(b, 'FEMALE') || getG(b, 'Female') || getG(b, 'female') || 0;
+        const other = Math.max(0, toNum(b.total) - (male + female));
+
+        maleRows[i][label] = male;
+        femaleRows[i][label] = female;
+        otherRows[i][label] = other;
+
+        totalsByCohort[label].m += male;
+        totalsByCohort[label].f += female;
+        totalsByCohort[label].o += other;
+      });
+    });
+
+    return { maleRows, femaleRows, otherRows, cohortsForLegend, totalsByCohort };
+  }, [normalizedValues, valueKeys, selectedUnit]);
 
   /* ===============================
      Sources 트리
@@ -331,7 +360,7 @@ export function DataVisualization({
   }
 
   /* ===============================
-     Demographics 변환
+     Demographics 변환 (Age/Sex 탭용)
   ================================= */
   const buildSexSeries = () => {
     if (!demographics) return null;
@@ -375,9 +404,9 @@ export function DataVisualization({
      메인 렌더
   ================================= */
   const renderChart = () => {
-    // --- Values: 세 개의 독립 차트(Male / Female / Other) ---
+    // --- Values: 3개의 차트(남/여/Other), 각 차트 안에서 코호트별 막대 동시 표시 ---
     if (selectedChart === 'values' && category === 'measurements') {
-      if (!valuesObj || availableKeys.length === 0) {
+      if (!valuesObj || valueKeys.length === 0) {
         return (
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
@@ -395,32 +424,10 @@ export function DataVisualization({
         );
       }
 
-      // 코호트 선택 버튼
-      const CohortButtons = (
-        <div className="flex flex-wrap gap-2">
-          {availableKeys.map((k) => (
-            <Button
-              key={k}
-              variant={activeValuesKey === k ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setActiveValuesKey(k);
-                const nextUnits = Array.from(
-                  normalizedValues.byKey?.[k]?.units || [],
-                );
-                setSelectedUnit(nextUnits[0] || 'No unit');
-              }}
-            >
-              {cohortLabel(k)}
-            </Button>
-          ))}
-        </div>
-      );
-
-      // 유닛 선택 버튼
+      // 유닛 선택 버튼만 노출 (코호트는 모두 함께 표기)
       const UnitButtons = (
-        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-          {units.map((u) => (
+        <div className="flex flex-wrap gap-2">
+          {unitsAcross.map((u) => (
             <Button
               key={u}
               variant={selectedUnit === u ? 'default' : 'outline'}
@@ -434,76 +441,96 @@ export function DataVisualization({
         </div>
       );
 
-      const charts = [
-        { title: `Male – ${totals.m.toLocaleString()}`, data: maleData, color: 'var(--chart-1)' },
-        { title: `Female – ${totals.f.toLocaleString()}`, data: femaleData, color: 'var(--chart-2)' },
-        { title: `Other – ${totals.o.toLocaleString()}`, data: otherData, color: 'var(--chart-3)' },
-      ];
+      // 차트 공통 컴포넌트
+      const ValuesChart = ({ title, data }) => (
+        <Card className="border-border bg-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-card-foreground">{title}</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Unit: {selectedUnit}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="min-w-0 h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 28 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="name"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    interval={0}
+                    angle={-30}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    label={{
+                      value: 'Participant Count',
+                      angle: -90,
+                      position: 'insideLeft',
+                      style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
+                    }}
+                  />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
+                            <p className="mb-2 font-medium text-card-foreground">{label}</p>
+                            {payload.map((e, i) => (
+                              <p key={i} className="text-sm text-muted-foreground">
+                                {e.name}: {Number(e.value).toLocaleString()}
+                              </p>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend />
+                  {valueKeys.map((k, idx) => (
+                    <Bar
+                      key={k}
+                      dataKey={cohortLabel(k)}
+                      fill={cohortColors[idx % cohortColors.length]}
+                      radius={[3, 3, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      );
+
+      // 코호트별 합계를 제목에 요약(있는 경우)
+      const summarizeTotals = (sexKey /* 'm' | 'f' | 'o' */) => {
+        const parts = valueKeys.map((k) => {
+          const label = cohortLabel(k);
+          const sum = totalsByCohort[label]?.[sexKey] ?? 0;
+          return `${label}: ${sum.toLocaleString()}`;
+        });
+        return parts.join(' · ');
+      };
 
       return (
         <div className="space-y-4">
-          {CohortButtons}
-          {UnitButtons}
+          <div className="flex items-center justify-between gap-2">
+            {UnitButtons}
+          </div>
 
           <div className={view === 'split' ? 'flex flex-col gap-4' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
-            {charts.map(({ title, data, color }) => (
-              <Card key={title} className="border-border bg-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-card-foreground">{title}</CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground">
-                    {cohortLabel(activeValuesKey)} · {selectedUnit}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="min-w-0 h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 28 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          dataKey="name"
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                          interval={0}
-                          angle={-30}
-                          textAnchor="end"
-                          height={50}
-                        />
-                        <YAxis
-                          fontSize={11}
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                          label={{
-                            value: 'Participant Count',
-                            angle: -90,
-                            position: 'insideLeft',
-                            style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
-                          }}
-                        />
-                        <Tooltip
-                          content={({ active, payload, label }) => {
-                            if (active && payload && payload.length) {
-                              return (
-                                <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
-                                  <p className="mb-1 font-medium text-card-foreground">{label}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {Number(payload[0].value).toLocaleString()}
-                                  </p>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Bar dataKey="count" fill={`hsl(${color})`} radius={[3, 3, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <ValuesChart title={`Male — ${summarizeTotals('m')}`} data={maleRows} />
+            <ValuesChart title={`Female — ${summarizeTotals('f')}`} data={femaleRows} />
+            <ValuesChart title={`Other — ${summarizeTotals('o')}`} data={otherRows} />
           </div>
         </div>
       );
