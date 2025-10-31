@@ -145,9 +145,9 @@ export default function MedicalDataBrowser() {
       const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
 
       const raw = await getDomainConcepts({
-        tabKey: activeTab,
-        keyword: searchQuery,
-        cohortIds,
+        tabKey: activeTab, // e.g. 'conditions'
+        keyword: searchQuery, // 검색창 입력값
+        cohortIds: selectedCohorts.map((c) => c.id),
       });
 
       const mapped = (raw || []).map((row, idx) => {
