@@ -35,7 +35,6 @@ const toNum = (v) => {
   return 0;
 };
 
-/** vocabulary_counts 객체를 [{name, count}] 배열로 변환 */
 const entriesFromVocab = (vocab) => {
   if (!vocab || typeof vocab !== 'object') return [];
   return Object.entries(vocab)
@@ -44,7 +43,6 @@ const entriesFromVocab = (vocab) => {
     .sort((a, b) => b.count - a.count);
 };
 
-/** descendent_concept 트리를 {name,count,_vocab,children[]}로 변환 */
 const buildTreeFromRow = (row) => {
   if (!row) return null;
   const name = row.concept_name ?? '-';
@@ -63,7 +61,7 @@ const buildTreeFromRow = (row) => {
   };
 };
 
-// --- Values 정규화 유틸 ---
+// Values 응답 정규화
 const normalizeValuesResponse = (valuesObj = {}) => {
   const byKey = {};
   const keys = Object.keys(valuesObj || {});
@@ -90,7 +88,7 @@ const normalizeValuesResponse = (valuesObj = {}) => {
   return { keys, byKey };
 };
 
-// 범위 라벨 오름차순(숫자 시작값 기준 추정) 정렬
+// 범위 라벨 정렬(숫자 시작값 추정)
 const sortRanges = (arr) =>
   [...arr].sort((a, b) => {
     const pa = parseInt(String(a).split(/[^0-9]/)[0], 10);
@@ -124,7 +122,7 @@ export function DataVisualization({
   const demographics = details?.demographics;
 
   /* ===============================
-     차트 탭 구성
+     탭
   ================================= */
   const getChartOptions = () => {
     if (category === 'measurements') {
@@ -134,19 +132,12 @@ export function DataVisualization({
         { key: 'sex', label: 'Sex' },
         { key: 'sources', label: 'Sources' },
       ];
-    } else if (category === 'drug-exposures') {
-      return [
-        { key: 'age', label: 'Age' },
-        { key: 'sex', label: 'Sex' },
-        { key: 'sources', label: 'Sources' },
-      ];
-    } else {
-      return [
-        { key: 'age', label: 'Age' },
-        { key: 'sex', label: 'Sex' },
-        { key: 'sources', label: 'Sources' },
-      ];
     }
+    return [
+      { key: 'age', label: 'Age' },
+      { key: 'sex', label: 'Sex' },
+      { key: 'sources', label: 'Sources' },
+    ];
   };
 
   const chartOptions = getChartOptions();
@@ -171,131 +162,75 @@ export function DataVisualization({
     });
 
   /* ===============================
-     Measurements: Values 탭 상태
-     (조건부 훅 금지 → 항상 상단에서 선언)
+     Values 탭 상태 (코호트1 선택 + 유닛 선택)
   ================================= */
   const valuesObj = details?.values || null;
   const normalizedValues = useMemo(
-    () => (valuesObj ? normalizeValuesResponse(valuesObj) : { keys: [], byKey: {} }),
+    () =>
+      valuesObj ? normalizeValuesResponse(valuesObj) : { keys: [], byKey: {} },
     [valuesObj],
   );
 
-  // 코호트 키들
-  const cohortKeys = normalizedValues.keys || [];
+  const availableKeys = normalizedValues.keys || [];
+  const defaultValuesKey = useMemo(
+    () => (availableKeys.includes('all') ? 'all' : availableKeys[0] || ''),
+    [availableKeys],
+  );
+  const [activeValuesKey, setActiveValuesKey] = useState(defaultValuesKey);
+  useEffect(() => setActiveValuesKey(defaultValuesKey), [defaultValuesKey, selectedItem]);
 
-  // 유닛 목록: 모든 코호트의 유닛 **합집합**
   const units = useMemo(() => {
-    if (!valuesObj) return [];
-    const set = new Set();
-    for (const k of cohortKeys) {
-      const node = normalizedValues.byKey?.[k];
-      if (!node) continue;
-      for (const u of node.units || []) set.add(u);
-    }
-    const arr = Array.from(set);
+    const unitSet =
+      normalizedValues.byKey?.[activeValuesKey]?.units || new Set();
+    const arr = Array.from(unitSet);
     return arr.length ? arr : ['No unit'];
-  }, [normalizedValues, cohortKeys, valuesObj]);
+  }, [normalizedValues, activeValuesKey]);
 
   const [selectedUnit, setSelectedUnit] = useState(units[0]);
   useEffect(() => {
     if (!units.includes(selectedUnit)) setSelectedUnit(units[0]);
   }, [units, selectedUnit]);
 
-  // Values: 코호트들을 한 번에 보여주는 데이터(범위=X, 인원수=Y, 코호트=시리즈)
-  const valuesCombinedRows = useMemo(() => {
-    if (!valuesObj) return [];
-    // 모든 코호트에서 선택 유닛의 range 합집합
-    const rangesSet = new Set();
-    for (const k of cohortKeys) {
-      const unitNode = normalizedValues.byKey?.[k]?.byUnit?.[selectedUnit];
-      if (!unitNode) continue;
-      for (const r of unitNode.ranges.keys()) rangesSet.add(r);
-    }
-    const ranges = sortRanges(Array.from(rangesSet));
+  // Values 범위→성별 카운트 → 3개의 차트용 데이터 분리
+  const { maleData, femaleData, otherData, totals } = useMemo(() => {
+    if (!valuesObj) return { maleData: [], femaleData: [], otherData: [], totals: { m:0,f:0,o:0 } };
+    const unitNode =
+      normalizedValues.byKey?.[activeValuesKey]?.byUnit?.[selectedUnit];
+    if (!unitNode) return { maleData: [], femaleData: [], otherData: [], totals: { m:0,f:0,o:0 } };
 
-    // 각 range 행에 코호트별 total 채우기
-    const rows = ranges.map((range) => {
-      const row = { name: range };
-      for (let i = 0; i < cohortKeys.length; i++) {
-        const k = cohortKeys[i];
-        const node = normalizedValues.byKey?.[k]?.byUnit?.[selectedUnit];
-        const total = node?.ranges?.get(range)?.total ?? 0;
-        row[cohortLabel(k)] = toNum(total);
-      }
-      return row;
-    });
-    return rows;
-  }, [valuesObj, normalizedValues, cohortKeys, selectedUnit]);
+    const ranges = sortRanges(Array.from(unitNode.ranges.keys()));
+    const maleData = [];
+    const femaleData = [];
+    const otherData = [];
+    let m=0, f=0, o=0;
+
+    for (const range of ranges) {
+      const bucket = unitNode.ranges.get(range) || { byGender: new Map(), total: 0 };
+      const g = (key) =>
+        toNum(
+          bucket.byGender.get(key) ??
+          bucket.byGender.get(key?.toUpperCase?.()) ??
+          bucket.byGender.get(key?.toLowerCase?.())
+        );
+      const male = g('MALE') || g('Male') || g('male') || 0;
+      const female = g('FEMALE') || g('Female') || g('female') || 0;
+      const other = Math.max(0, toNum(bucket.total) - (male + female));
+
+      maleData.push({ name: range, count: male });
+      femaleData.push({ name: range, count: female });
+      otherData.push({ name: range, count: other });
+      m+=male; f+=female; o+=other;
+    }
+    return { maleData, femaleData, otherData, totals: { m, f, o } };
+  }, [valuesObj, normalizedValues, activeValuesKey, selectedUnit]);
 
   /* ===============================
-     Sources용 트리 상태
+     Sources 트리
   ================================= */
   const [sourceTree, setSourceTree] = useState(null);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
   const [selectedTreeNode, setSelectedTreeNode] = useState(null);
 
-  /* ===============================
-     로딩/에러
-  ================================= */
-  if (loading) {
-    return (
-      <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
-        Loading demographics...
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="flex h-[320px] items-center justify-center text-sm text-destructive">
-        {error}
-      </div>
-    );
-  }
-
-  /* ===============================
-     Demographics → Recharts 변환
-  ================================= */
-  const buildSexSeries = () => {
-    if (!demographics) return null;
-    const groups = Object.keys(demographics);
-    const sexCats = new Set();
-    groups.forEach((g) => {
-      const sexObj = demographics[g]?.sex || {};
-      Object.keys(sexObj).forEach((k) => sexCats.add(k));
-    });
-    const categories = Array.from(sexCats);
-    return categories.map((cat) => {
-      const row = { name: cat };
-      groups.forEach((g) => {
-        row[cohortLabel(g)] = Number(demographics[g]?.sex?.[cat] ?? 0);
-      });
-      return row;
-    });
-  };
-
-  const buildAgeSeries = () => {
-    if (!demographics) return null;
-    const groups = Object.keys(demographics);
-    const ageKeySet = new Set();
-    groups.forEach((g) => {
-      const ageObj = demographics[g]?.age || {};
-      Object.keys(ageObj).forEach((k) => ageKeySet.add(k));
-    });
-    const orderedAges = sortAgeBuckets(
-      Object.fromEntries(Array.from(ageKeySet).map((k) => [k, 1])),
-    );
-    return orderedAges.map((bucket) => {
-      const row = { name: bucket };
-      groups.forEach((g) => {
-        row[cohortLabel(g)] = Number(demographics[g]?.age?.[bucket] ?? 0);
-      });
-      return row;
-    });
-  };
-
-  /* ===============================
-     Sources 트리 만들기 (selectedItem 변경 시)
-  ================================= */
   useEffect(() => {
     const raw = selectedItem?._raw;
     if (!raw) {
@@ -304,7 +239,6 @@ export function DataVisualization({
       setExpandedNodes(new Set());
       return;
     }
-
     const root = buildTreeFromRow({
       concept_name: selectedItem?.name ?? raw?.concept_name ?? '-',
       total_participant_count:
@@ -317,15 +251,11 @@ export function DataVisualization({
         ? raw.descendent_concept
         : [],
     });
-
     setSourceTree(root);
     setSelectedTreeNode(root);
     setExpandedNodes(new Set([root?.name].filter(Boolean)));
   }, [selectedItem]);
 
-  /* ===============================
-     Sources 트리 UI (복구)
-  ================================= */
   const TreeNodeComponent = ({ node, level = 0 }) => {
     if (!node) return null;
     const hasChildren = Array.isArray(node.children) && node.children.length > 0;
@@ -368,11 +298,7 @@ export function DataVisualization({
         {hasChildren && isExpanded && (
           <div>
             {node.children.map((child, idx) => (
-              <TreeNodeComponent
-                key={`${child.name}-${idx}`}
-                node={child}
-                level={level + 1}
-              />
+              <TreeNodeComponent key={`${child.name}-${idx}`} node={child} level={level + 1} />
             ))}
           </div>
         )}
@@ -380,24 +306,78 @@ export function DataVisualization({
     );
   };
 
-  /* ===============================
-     Sources 차트 데이터
-  ================================= */
   const getSourceChartData = () => {
     if (!selectedTreeNode) return [];
     const entries = entriesFromVocab(selectedTreeNode._vocab);
-    return entries.length > 0
-      ? entries
-      : [{ name: 'No source breakdown', count: 0 }];
+    return entries.length ? entries : [{ name: 'No source breakdown', count: 0 }];
   };
 
   /* ===============================
-     메인 렌더러
+     로딩/에러
+  ================================= */
+  if (loading) {
+    return (
+      <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
+        Loading demographics...
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex h-[320px] items-center justify-center text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
+
+  /* ===============================
+     Demographics 변환
+  ================================= */
+  const buildSexSeries = () => {
+    if (!demographics) return null;
+    const groups = Object.keys(demographics);
+    const sexCats = new Set();
+    groups.forEach((g) => {
+      const sexObj = demographics[g]?.sex || {};
+      Object.keys(sexObj).forEach((k) => sexCats.add(k));
+    });
+    const categories = Array.from(sexCats);
+    return categories.map((cat) => {
+      const row = { name: cat };
+      groups.forEach((g) => {
+        row[cohortLabel(g)] = Number(demographics[g]?.sex?.[cat] ?? 0);
+      });
+      return row;
+    });
+  };
+
+  const buildAgeSeries = () => {
+    if (!demographics) return null;
+    const groups = Object.keys(demographics);
+    const ageKeySet = new Set();
+    groups.forEach((g) => {
+      const ageObj = demographics[g]?.age || {};
+      Object.keys(ageObj).forEach((k) => ageKeySet.add(k));
+    });
+    const orderedAges = sortAgeBuckets(
+      Object.fromEntries(Array.from(ageKeySet).map((k) => [k, 1])),
+    );
+    return orderedAges.map((bucket) => {
+      const row = { name: bucket };
+      groups.forEach((g) => {
+        row[cohortLabel(g)] = Number(demographics[g]?.age?.[bucket] ?? 0);
+      });
+      return row;
+    });
+  };
+
+  /* ===============================
+     메인 렌더
   ================================= */
   const renderChart = () => {
-    // --- Values (코호트 다중 시리즈, 범위=X, 인원=Y) ---
+    // --- Values: 세 개의 독립 차트(Male / Female / Other) ---
     if (selectedChart === 'values' && category === 'measurements') {
-      if (!valuesObj || cohortKeys.length === 0) {
+      if (!valuesObj || availableKeys.length === 0) {
         return (
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
@@ -415,107 +395,121 @@ export function DataVisualization({
         );
       }
 
-      const rows = valuesCombinedRows;
+      // 코호트 선택 버튼
+      const CohortButtons = (
+        <div className="flex flex-wrap gap-2">
+          {availableKeys.map((k) => (
+            <Button
+              key={k}
+              variant={activeValuesKey === k ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setActiveValuesKey(k);
+                const nextUnits = Array.from(
+                  normalizedValues.byKey?.[k]?.units || [],
+                );
+                setSelectedUnit(nextUnits[0] || 'No unit');
+              }}
+            >
+              {cohortLabel(k)}
+            </Button>
+          ))}
+        </div>
+      );
+
+      // 유닛 선택 버튼
+      const UnitButtons = (
+        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+          {units.map((u) => (
+            <Button
+              key={u}
+              variant={selectedUnit === u ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedUnit(u)}
+              className="text-xs"
+            >
+              {u}
+            </Button>
+          ))}
+        </div>
+      );
+
+      const charts = [
+        { title: `Male – ${totals.m.toLocaleString()}`, data: maleData, color: 'var(--chart-1)' },
+        { title: `Female – ${totals.f.toLocaleString()}`, data: femaleData, color: 'var(--chart-2)' },
+        { title: `Other – ${totals.o.toLocaleString()}`, data: otherData, color: 'var(--chart-3)' },
+      ];
 
       return (
         <div className="space-y-4">
-          {/* 유닛 선택 */}
-          <div className="flex flex-wrap gap-2">
-            {units.map((u) => (
-              <Button
-                key={u}
-                variant={selectedUnit === u ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedUnit(u)}
-                className="text-xs"
-              >
-                {u}
-              </Button>
+          {CohortButtons}
+          {UnitButtons}
+
+          <div className={view === 'split' ? 'flex flex-col gap-4' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
+            {charts.map(({ title, data, color }) => (
+              <Card key={title} className="border-border bg-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-card-foreground">{title}</CardTitle>
+                  <CardDescription className="text-sm text-muted-foreground">
+                    {cohortLabel(activeValuesKey)} · {selectedUnit}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="min-w-0 h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 28 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="name"
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                          interval={0}
+                          angle={-30}
+                          textAnchor="end"
+                          height={50}
+                        />
+                        <YAxis
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                          label={{
+                            value: 'Participant Count',
+                            angle: -90,
+                            position: 'insideLeft',
+                            style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
+                          }}
+                        />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
+                                  <p className="mb-1 font-medium text-card-foreground">{label}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {Number(payload[0].value).toLocaleString()}
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar dataKey="count" fill={`hsl(${color})`} radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
-
-          <Card className="border-border bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base text-card-foreground">Values</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
-                Cohort-wise distribution ({selectedUnit})
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="min-w-0 h-[320px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={rows}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 28 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="hsl(var(--border))"
-                    />
-                    <XAxis
-                      dataKey="name"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                      interval={0}
-                      angle={-30}
-                      textAnchor="end"
-                      height={50}
-                    />
-                    <YAxis
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                      label={{
-                        value: 'Participant Count',
-                        angle: -90,
-                        position: 'insideLeft',
-                        style: {
-                          fontSize: 10,
-                          fill: 'hsl(var(--muted-foreground))',
-                        },
-                      }}
-                    />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
-                              <p className="mb-2 font-medium text-card-foreground">
-                                {label}
-                              </p>
-                              {payload.map((entry, idx) => (
-                                <p key={idx} className="text-sm text-muted-foreground">
-                                  {entry.name}: {Number(entry.value).toLocaleString()}
-                                </p>
-                              ))}
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Legend />
-                    {cohortKeys.map((k, idx) => (
-                      <Bar
-                        key={k}
-                        dataKey={cohortLabel(k)}
-                        fill={cohortColors[idx % cohortColors.length]}
-                        radius={[3, 3, 0, 0]}
-                      />
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       );
     }
 
-    // Sex
+    // --- Sex (다중 코호트 동시에) ---
     if (selectedChart === 'sex') {
       const transformedData = buildSexSeries();
       if (!transformedData || transformedData.length === 0) {
@@ -527,62 +521,35 @@ export function DataVisualization({
                 No demographic data to display
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                No data
-              </div>
-            </CardContent>
+            <CardContent><div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">No data</div></CardContent>
           </Card>
         );
       }
-
       const groups = Object.keys(demographics || {});
-
       return (
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg text-card-foreground">Sex</CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              Gender breakdown across {groups.length} cohort
-              {groups.length > 1 ? 's' : ''}
+              Gender breakdown across {groups.length} cohort{groups.length > 1 ? 's' : ''}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="min-w-0 h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={transformedData}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                  />
-                  <XAxis
-                    dataKey="name"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                  />
-                  <YAxis
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                  />
+                <BarChart data={transformedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         return (
                           <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
-                            <p className="mb-2 font-medium text-card-foreground">
-                              {payload[0].payload.name}
-                            </p>
-                            {payload.map((entry, idx) => (
-                              <p key={idx} className="text-sm text-muted-foreground">
-                                {entry.name}:{' '}
-                                {Number(entry.value).toLocaleString()}
+                            <p className="mb-2 font-medium text-card-foreground">{payload[0].payload.name}</p>
+                            {payload.map((e, i) => (
+                              <p key={i} className="text-sm text-muted-foreground">
+                                {e.name}: {Number(e.value).toLocaleString()}
                               </p>
                             ))}
                           </div>
@@ -592,13 +559,8 @@ export function DataVisualization({
                     }}
                   />
                   <Legend />
-                  {(groups.length ? groups : ['All']).map((key, index) => (
-                    <Bar
-                      key={key}
-                      dataKey={cohortLabel(key)}
-                      fill={cohortColors[index % cohortColors.length]}
-                      radius={[3, 3, 0, 0]}
-                    />
+                  {(groups.length ? groups : ['All']).map((key, idx) => (
+                    <Bar key={key} dataKey={cohortLabel(key)} fill={cohortColors[idx % cohortColors.length]} radius={[3, 3, 0, 0]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -608,7 +570,7 @@ export function DataVisualization({
       );
     }
 
-    // Age
+    // --- Age (다중 코호트 동시에) ---
     if (selectedChart === 'age') {
       const transformedData = buildAgeSeries();
       if (!transformedData || transformedData.length === 0) {
@@ -616,66 +578,37 @@ export function DataVisualization({
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-card-foreground">Age</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
-                No demographic data to display
-              </CardDescription>
+              <CardDescription className="text-sm text-muted-foreground">No demographic data to display</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                No data
-              </div>
-            </CardContent>
+            <CardContent><div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">No data</div></CardContent>
           </Card>
         );
       }
-
       const groups = Object.keys(demographics || {});
-
       return (
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg text-card-foreground">Age</CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              Age groups across {groups.length} cohort
-              {groups.length > 1 ? 's' : ''}
+              Age groups across {groups.length} cohort{groups.length > 1 ? 's' : ''}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="min-w-0 h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={transformedData}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                  />
-                  <XAxis
-                    dataKey="name"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                  />
-                  <YAxis
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                  />
+                <BarChart data={transformedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         return (
                           <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
-                            <p className="mb-2 font-medium text-card-foreground">
-                              Age {payload[0].payload.name}
-                            </p>
-                            {payload.map((entry, idx) => (
-                              <p key={idx} className="text-sm text-muted-foreground">
-                                {entry.name}:{' '}
-                                {Number(entry.value).toLocaleString()}
+                            <p className="mb-2 font-medium text-card-foreground">Age {payload[0].payload.name}</p>
+                            {payload.map((e, i) => (
+                              <p key={i} className="text-sm text-muted-foreground">
+                                {e.name}: {Number(e.value).toLocaleString()}
                               </p>
                             ))}
                           </div>
@@ -685,13 +618,8 @@ export function DataVisualization({
                     }}
                   />
                   <Legend />
-                  {(groups.length ? groups : ['All']).map((key, index) => (
-                    <Bar
-                      key={key}
-                      dataKey={cohortLabel(key)}
-                      fill={cohortColors[index % cohortColors.length]}
-                      radius={[3, 3, 0, 0]}
-                    />
+                  {(groups.length ? groups : ['All']).map((key, idx) => (
+                    <Bar key={key} dataKey={cohortLabel(key)} fill={cohortColors[idx % cohortColors.length]} radius={[3, 3, 0, 0]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -701,76 +629,46 @@ export function DataVisualization({
       );
     }
 
-    // Sources
+    // --- Sources ---
     if (selectedChart === 'sources') {
       if (!sourceTree) {
         return (
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-card-foreground">Sources</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
-                No descendent concepts to display.
-              </CardDescription>
+              <CardDescription className="text-sm text-muted-foreground">No descendent concepts to display.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-                No data
-              </div>
-            </CardContent>
+            <CardContent><div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">No data</div></CardContent>
           </Card>
         );
       }
-
       const chartData = getSourceChartData();
 
       return (
-        <div
-          className={view === 'split' ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}
-        >
+        <div className={view === 'split' ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-card-foreground">Sources</CardTitle>
               <CardDescription className="text-sm text-muted-foreground">
-                {selectedTreeNode
-                  ? `Distribution for ${selectedTreeNode.name}`
-                  : 'Select a concept to view distribution'}
+                {selectedTreeNode ? `Distribution for ${selectedTreeNode.name}` : 'Select a concept to view distribution'}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="min-w-0 h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={chartData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="hsl(var(--border))"
-                    />
-                    <XAxis
-                      dataKey="name"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    />
-                    <YAxis
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    />
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
-                          const data = payload[0].payload;
+                          const d = payload[0].payload;
                           return (
                             <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
-                              <p className="font-medium text-card-foreground">
-                                {data.name}
-                              </p>
+                              <p className="font-medium text-card-foreground">{d.name}</p>
                               <p className="text-sm text-muted-foreground">
-                                {(data.count ?? 0).toLocaleString()} participants
+                                {(d.count ?? 0).toLocaleString()} participants
                               </p>
                             </div>
                           );
@@ -778,11 +676,7 @@ export function DataVisualization({
                         return null;
                       }}
                     />
-                    <Bar
-                      dataKey="count"
-                      fill="hsl(var(--chart-1))"
-                      radius={[3, 3, 0, 0]}
-                    />
+                    <Bar dataKey="count" fill="hsl(var(--chart-1))" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -791,9 +685,7 @@ export function DataVisualization({
 
           <Card className="border-border bg-card">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-card-foreground">
-                Count Breakdown (Tree)
-              </CardTitle>
+              <CardTitle className="text-lg text-card-foreground">Count Breakdown (Tree)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[300px] overflow-y-auto">
@@ -808,9 +700,6 @@ export function DataVisualization({
     return null;
   };
 
-  /* ===============================
-     렌더
-  ================================= */
   return (
     <div className="space-y-4 min-w-0">
       <div className="flex flex-wrap gap-2">
@@ -820,11 +709,7 @@ export function DataVisualization({
             variant={selectedChart === option.key ? 'default' : 'outline'}
             size="sm"
             onClick={() => setSelectedChart(option.key)}
-            className={
-              selectedChart === option.key
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                : ''
-            }
+            className={selectedChart === option.key ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}
           >
             {option.label}
           </Button>
