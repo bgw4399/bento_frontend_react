@@ -323,7 +323,7 @@ export default function MedicalDataBrowser() {
     if (!selectedItem) return;
     fetchConceptDetailsFor(selectedItem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, selectedCohorts])
+  }, [selectedItem, activeTab, selectedCohorts]);
 
   useEffect(() => {
     setSelectedItem(null);
@@ -501,7 +501,7 @@ export default function MedicalDataBrowser() {
                   <div className="flex items-center gap-3" />
                 </div>
                 {/* 상단 차트 */}
-                <div className="rounded-xl border border-border bg-card p-6">
+                <div className="rounded-xl border border-border bg-card p-6 min-w-0">
                   {(() => {
                     const chartData = currentData
                       .filter((d) => !d.isChild && typeof d.count === 'number' && d.name)
@@ -907,28 +907,31 @@ export default function MedicalDataBrowser() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() =>
-                                      setSelectedItem(item) ||
+                                    onClick={() => {
+                                      // ✅ 클릭 시 선택된 아이템 상태 변경
+                                      setSelectedItem(item);
+
+                                      // ✅ 클릭과 동시에 상세 API 호출 (Age/Sex 그래프용)
+                                      fetchConceptDetailsFor(item);
+
+                                      // ✅ 펼침/접힘 상태 토글
                                       setExpandedItems((prev) => {
                                         const n = new Set(prev);
                                         const key = `${activeTab}-${item.conceptId}`;
                                         n.has(key) ? n.delete(key) : n.add(key);
                                         return n;
-                                      })
-                                    }
+                                      });
+                                    }}
                                     className="flex items-center gap-2"
                                   >
                                     View Analytics
                                     <ChevronDown
                                       className={`h-4 w-4 transition-transform ${
-                                        expandedItems.has(
-                                          `${activeTab}-${item.conceptId}`,
-                                        )
-                                          ? 'rotate-180'
-                                          : ''
+                                        expandedItems.has(`${activeTab}-${item.conceptId}`) ? 'rotate-180' : ''
                                       }`}
                                     />
                                   </Button>
+
                                 </div>
                               </div>
                             </div>
@@ -945,11 +948,16 @@ export default function MedicalDataBrowser() {
                                     >
                                       <DataVisualization
                                         selectedItem={item}
-                                        category={activeTab === 'labs-measurements' ? 'measurements' : activeTab}
+                                        category={apiDomainOf(activeTab)}
                                         view={layoutMode}
                                         selectedCohorts={selectedCohorts}
-                                        // [ADD] 트리 소스: 리스트 행의 원본 row를 내려준다
-                                        details={{ concept: item?._raw }}
+                                        details={(() => {
+                                          const domain = activeTab === 'labs-measurements' ? 'measurements' : activeTab;
+                                          const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+                                          const key = `${domain}:${item.conceptId ?? item.id}:${cohortIds.join('|')}`;
+                                          const det = detailsByKey[key];
+                                          return det ? { ...det, concept: item?._raw } : { concept: item?._raw };
+                                        })()}
                                       />
                                     </div>
                                   </div>
@@ -977,7 +985,7 @@ export default function MedicalDataBrowser() {
                           <div className="flex items-center gap-4">
                             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
                               <span className="text-lg font-bold text-primary-foreground">
-                                {item.isParent ? startIndex + index + 1 : ''}
+                                {startIndex + index + 1}
                               </span>
                             </div>
 
@@ -1044,28 +1052,31 @@ export default function MedicalDataBrowser() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() =>
-                                    setSelectedItem(item) ||
+                                  onClick={() => {
+                                    // ✅ 클릭 시 선택된 아이템 상태 변경
+                                    setSelectedItem(item);
+
+                                    // ✅ 클릭과 동시에 상세 API 호출 (Age/Sex 그래프용)
+                                    fetchConceptDetailsFor(item);
+
+                                    // ✅ 펼침/접힘 상태 토글
                                     setExpandedItems((prev) => {
                                       const n = new Set(prev);
-                                      const key = `${activeTab}-${item.id}`;
+                                      const key = `${activeTab}-${item.conceptId}`;
                                       n.has(key) ? n.delete(key) : n.add(key);
                                       return n;
-                                    })
-                                  }
+                                    });
+                                  }}
                                   className="flex items-center gap-2"
                                 >
                                   View Analytics
                                   <ChevronDown
                                     className={`h-4 w-4 transition-transform ${
-                                      expandedItems.has(
-                                        `${activeTab}-${item.id}`,
-                                      )
-                                        ? 'rotate-180'
-                                        : ''
+                                      expandedItems.has(`${activeTab}-${item.conceptId}`) ? 'rotate-180' : ''
                                     }`}
                                   />
                                 </Button>
+
                               </div>
                             </div>
                           </div>
@@ -1081,12 +1092,17 @@ export default function MedicalDataBrowser() {
                                     <DataVisualization
                                       selectedItem={item}
                                       category={
-                                        activeTab === 'labs-measurements'
-                                          ? 'measurements'
-                                          : activeTab
+                                        apiDomainOf(activeTab)
                                       }
                                       view={layoutMode}
                                       selectedCohorts={selectedCohorts}
+                                      details={(() => {
+                                        const domain = activeTab === 'labs-measurements' ? 'measurements' : activeTab;
+                                        const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+                                        const key = `${domain}:${item.conceptId ?? item.id}:${cohortIds.join('|')}`;
+                                        const det = detailsByKey[key];
+                                        return det ? { ...det, concept: item?._raw } : { concept: item?._raw };
+                                      })()}
                                     />
                                   </div>
                                 </div>
