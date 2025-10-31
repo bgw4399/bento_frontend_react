@@ -39,7 +39,6 @@ export async function getDomainConcepts({
   try {
     const { data } = await axios.get(url, {
       params,
-      withCredentials: true,
     });
     return data;
   } catch (err) {
