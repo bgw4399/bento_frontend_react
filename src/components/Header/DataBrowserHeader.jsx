@@ -678,8 +678,6 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
       const abort = new AbortController();
       (async () => {
         try {
-          setStatsLoading(true);
-          setStatsError('');
           const statsMap = await fetchCohortStatsBatch(needs, {
             signal: abort.signal,
           });
