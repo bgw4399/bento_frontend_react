@@ -26,6 +26,40 @@ import { getDomainSummary } from '@/api/data-browser/domain-summary.js';
 import { getDomainConcepts } from '@/api/data-browser/get-concept-list.js';
 import { getConceptDetails } from '@/api/data-browser/get-concept-detail.js';
 
+const toNum = (v) => {
+  if (v == null) return 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (typeof v === 'string') {
+    const n = Number(v.replaceAll(',', ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+};
+
+const getSnuhCount = (vocab, code) => {
+  if (!vocab || !code) return 0;
+
+  if (typeof vocab === 'object' && !Array.isArray(vocab)) {
+    const val = vocab[code];
+    if (val != null) return toNum(val);
+  }
+  if (Array.isArray(vocab)) {
+    for (const item of vocab) {
+      if (!item) continue;
+      const k = item.code ?? item.snuhId ?? item.id;
+      if (k === code) {
+        const c =
+          item.count ??
+          item.value ??
+          item.person_count ??
+          item.total_participant_count;
+        return toNum(c);
+      }
+    }
+  }
+  return 0;
+};
+
 const tabConfig = [
   {
     key: 'conditions',
@@ -78,6 +112,54 @@ export default function MedicalDataBrowser() {
   const [detailsByKey, setDetailsByKey] = useState({}); // API 결과 캐시
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState('');
+
+  const [conceptsPage, setConceptsPage] = useState(1);   // 1-based
+  const [conceptsTotal, setConceptsTotal] = useState(0); // 전체 개수
+
+  const normalizeConceptsResponse = (res) => {
+    // ✅ concepts 래퍼를 먼저 벗긴다
+    const box =
+      res && typeof res === 'object' && 'concepts' in res ? res.concepts : res;
+
+    if (Array.isArray(box)) return { list: box, page: 0, total: box.length };
+
+    if (box && typeof box === 'object') {
+      const list = Array.isArray(box.items)
+        ? box.items
+        : Array.isArray(box.content)
+          ? box.content
+          : Array.isArray(box.data)
+            ? box.data
+            : Array.isArray(box.results)
+              ? box.results
+              : Array.isArray(box.list)
+                ? box.list
+                : [];
+
+      const page0 =
+        typeof box.page === 'number'
+          ? box.page
+          : typeof box.pageNumber === 'number'
+            ? box.pageNumber
+            : typeof box.page_index === 'number'
+              ? box.page_index
+              : 0;
+
+      const total =
+        typeof box.total === 'number'
+          ? box.total
+          : typeof box.totalElements === 'number'
+            ? box.totalElements
+            : typeof box.total_count === 'number'
+              ? box.total_count
+              : list.length;
+
+      return { list, page: page0, total };
+    }
+
+    return { list: [], page: 0, total: 0 };
+  };
+
 
 // 탭 키를 API domain 형태로 매핑 (labs-measurements → measurements)
   const apiDomainOf = (tabKey) =>
@@ -157,23 +239,14 @@ export default function MedicalDataBrowser() {
       const participants = summaryByKey[activeTab]?.participant_count ?? null;
       const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
 
-      const raw = await getDomainConcepts({
+      const res = await getDomainConcepts({
         tabKey: activeTab, // e.g. 'conditions'
         keyword: searchQuery, // 검색창 입력값
         cohortIds,
+        page: currentPage,
       });
 
-      // refreshConcepts() 내부 매핑 부분
-      // refreshConcepts() 내부
-      const toNum = (v) => {
-        if (v == null) return 0;
-        if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-        if (typeof v === 'string') {
-          const n = Number(v.replaceAll(',', ''));
-          return Number.isFinite(n) ? n : 0;
-        }
-        return 0;
-      };
+      const { list: raw, page: page0, total } = normalizeConceptsResponse(res);
 
 // vocabulary_counts에서 "첫 번째 숫자"를 안전하게 꺼내는 헬퍼
       const firstNumber = (input) => {
@@ -237,7 +310,7 @@ export default function MedicalDataBrowser() {
 
 
       setConcepts(mapped);
-      setCurrentPage(1);
+      setConceptsTotal(Number(total) || 0);
     } catch (e) {
       console.error(e);
       setConcepts([]);
@@ -287,7 +360,7 @@ export default function MedicalDataBrowser() {
   useEffect(() => {
     refreshConcepts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, currentPage]);
 
   // 요약 분모가 바뀌면 다시 계산
   const activeParticipants = summaryByKey[activeTab]?.participant_count ?? null;
@@ -404,10 +477,10 @@ export default function MedicalDataBrowser() {
 
   })();
 
-  const totalPages = Math.ceil(currentData.length / searchLimit);
-  const startIndex = (currentPage - 1) * searchLimit;
-  const endIndex = startIndex + searchLimit;
-  const paginatedData = currentData.slice(startIndex, endIndex);
+  const totalPages = Math.max(1, Math.ceil((conceptsTotal ?? 0) / searchLimit));
+   const startIndex = (currentPage - 1) * searchLimit;              // 0-based 시작 인덱스
+   const endIndex = startIndex + currentData.length;                // 서버가 준 현재 페이지 개수만큼
+   const paginatedData = currentData;
   const activeCategory = tabConfig.find((t) => t.key === activeTab);
 
   return (
@@ -701,9 +774,9 @@ export default function MedicalDataBrowser() {
                       <div className="border-t border-border bg-muted/20 px-6 py-4">
                         <div className="flex items-center justify-between">
                           <div className="text-sm text-muted-foreground">
-                            Showing {startIndex + 1}-
-                            {Math.min(endIndex, currentData.length)} of{' '}
-                            {currentData.length} items
+                             Showing {currentPage === 0 ? 0 : startIndex + 1}
+                             -
+                             {Math.min(endIndex, conceptsTotal || 0)} of {conceptsTotal || 0} items
                           </div>
                           <div className="flex items-center gap-2">
                             <Button
@@ -1116,17 +1189,15 @@ export default function MedicalDataBrowser() {
 
                   <div className="flex items-center justify-between rounded-xl border border-border bg-card px-6 py-4">
                     <div className="text-sm text-muted-foreground">
-                      Showing {startIndex + 1}-
-                      {Math.min(endIndex, currentData.length)} of{' '}
-                      {currentData.length} items
+                      Showing {currentPage === 0 ? 0 : startIndex + 1}
+                      -
+                      {Math.min(endIndex, conceptsTotal || 0)} of {conceptsTotal || 0} items
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          setCurrentPage((p) => Math.max(1, p - 1))
-                        }
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
                       >
                         <ChevronLeft className="h-4 w-4" />
@@ -1137,13 +1208,12 @@ export default function MedicalDataBrowser() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          setCurrentPage((p) => Math.min(totalPages, p + 1))
-                        }
-                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Button>
+
                     </div>
                   </div>
                 </div>
