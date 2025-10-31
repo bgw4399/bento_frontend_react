@@ -24,6 +24,7 @@ import { TopChart } from './_components/top-chart.jsx';
 import { CohortHeader } from '../../components/Header/DataBrowserHeader.jsx';
 import { getDomainSummary } from '@/api/data-browser/domain-summary.js';
 import { getDomainConcepts } from '@/api/data-browser/get-concept-list.js';
+import { getConceptDetails } from '@/api/data-browser/get-concept-detail.js';
 
 const tabConfig = [
   {
@@ -73,6 +74,19 @@ export default function MedicalDataBrowser() {
   const [concepts, setConcepts] = useState([]);
   const [conceptsLoading, setConceptsLoading] = useState(false);
   const [conceptsError, setConceptsError] = useState('');
+
+  const [detailsByKey, setDetailsByKey] = useState({}); // API 결과 캐시
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
+
+// 탭 키를 API domain 형태로 매핑 (labs-measurements → measurements)
+  const apiDomainOf = (tabKey) =>
+    tabKey === 'labs-measurements' ? 'measurements' : tabKey;
+
+// 도메인 + conceptId + cohortIds 조합으로 캐시 키 만들기
+  const detailsKeyOf = (domain, conceptId, cohortIds) =>
+    `${domain}:${conceptId}:${(cohortIds || []).slice(0, 5).join('|')}`;
+
 
   // 탭 키 → summary row 매핑
   const summaryByKey = useMemo(() => {
@@ -233,6 +247,35 @@ export default function MedicalDataBrowser() {
     }
   }
 
+  // concept 항목 클릭시 상세 그래프 불러오는 api (age, sex)
+  async function fetchConceptDetailsFor(item) {
+    try {
+      setDetailsLoading(true);
+      setDetailsError('');
+
+      const domain = apiDomainOf(activeTab);
+      const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+      const key = detailsKeyOf(domain, item.conceptId ?? item.id, cohortIds);
+
+      // 이미 불러온 적 있으면 다시 안 불러옴 (캐시)
+      if (detailsByKey[key]) return;
+
+      const data = await getConceptDetails({
+        domain,
+        conceptId: item.conceptId ?? item.id,
+        cohortIds,
+      });
+
+      setDetailsByKey((prev) => ({ ...prev, [key]: data }));
+    } catch (e) {
+      console.error(e);
+      setDetailsError('Failed to load concept details');
+    } finally {
+      setDetailsLoading(false);
+    }
+  }
+
+
   // 최초 + 코호트 변경 시 summary 갱신 후 concepts 동기화
   useEffect(() => {
     refreshSummary(searchQuery);
@@ -275,6 +318,12 @@ export default function MedicalDataBrowser() {
   useEffect(() => {
     setHasSearched(true);
   }, []);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    fetchConceptDetailsFor(selectedItem);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedCohorts])
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') handleSearch();
@@ -569,7 +618,10 @@ export default function MedicalDataBrowser() {
                                     ? 'border-r-4 border-primary bg-primary/10'
                                     : 'hover:bg-muted/20'
                                 }`}
-                                onClick={() => setSelectedItem(item)}
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  fetchConceptDetailsFor(item);
+                                }}
                               >
                                 <div className="flex items-center gap-4">
                                   <div className="min-w-0 flex-1">
@@ -709,16 +761,32 @@ export default function MedicalDataBrowser() {
                               className="rounded-lg bg-muted/10 p-4"
                               style={{ height: '500px' }}
                             >
-                              <DataVisualization
-                                selectedItem={selectedItem}
-                                category={
-                                  activeTab === 'labs-measurements'
-                                    ? 'measurements'
-                                    : activeTab
-                                }
-                                view={layoutMode}
-                                selectedCohorts={selectedCohorts}
-                              />
+                              {(() => {
+                                const domain = apiDomainOf(activeTab);
+                                const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+                                const key = detailsKeyOf(domain, selectedItem.conceptId ?? selectedItem.id, cohortIds);
+                                const details = detailsByKey[key];
+
+                                return (
+                                  <>
+                                    {detailsLoading && !details && (
+                                      <div className="mb-3 text-sm text-muted-foreground">
+                                        Loading details…
+                                      </div>
+                                    )}
+                                    {detailsError && !details && (
+                                      <div className="mb-3 text-sm text-destructive">{detailsError}</div>
+                                    )}
+                                    <DataVisualization
+                                      selectedItem={selectedItem}
+                                      category={domain}
+                                      view={layoutMode}
+                                      selectedCohorts={selectedCohorts}
+                                      details={details} // ✅ API 결과 전달
+                                    />
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         </>
