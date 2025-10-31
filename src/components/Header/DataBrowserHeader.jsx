@@ -466,14 +466,27 @@ const CHART_COLORS = [
 /** 유틸: 선택 코호트 공통 age 구간 정렬 */
 function getAllAgeRanges(selected) {
   const set = new Set();
+
   selected.forEach((c) => {
     if (c && c.age) Object.keys(c.age).forEach((k) => set.add(k));
   });
+
+  // 구간 시작값 기준으로 오름차순 정렬
   return Array.from(set).sort((a, b) => {
     const aNum = Math.abs(parseInt(a.split('-')[1], 10));
     const bNum = Math.abs(parseInt(b.split('-')[1], 10));
     return bNum - aNum;
   });
+}
+
+/** 유틸: age 구간 reverse */
+function prettyAgeLabel(range) {
+  const nums = String(range).match(/-?\d+/g);
+  if (!nums || nums.length < 2) return range;
+  const a = Math.abs(parseInt(nums[0], 10));
+  const b = Math.abs(parseInt(nums[1], 10));
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  return `${lo}-${hi}`;
 }
 
 /** 유틸: visitCount 전체 key */
@@ -1144,7 +1157,7 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
                             <div key={range}>
                               <div className="mb-1 flex items-center justify-between">
                                 <span className="text-sm font-medium">
-                                  {range} years
+                                  {prettyAgeLabel(range)} years
                                 </span>
                                 <span className="text-xs text-muted-foreground">
                                   Total: {total.toLocaleString()}
