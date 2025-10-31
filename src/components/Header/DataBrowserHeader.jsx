@@ -949,13 +949,11 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
                                   {cohort.name}
                                 </div>
                                 <div className="mt-1 text-right text-xs leading-tight text-muted-foreground">
-                                  {cohort.author && (
-                                    <div>Author: {shortId(cohort.author)}</div>
-                                  )}
+                                  {/*{cohort.author && (*/}
+                                  {/*  <div>Author: {shortId(cohort.author)}</div>*/}
+                                  {/*)}*/}
                                   {cohort.created_at && (
-                                    <div>
-                                      Created: {formatDate(cohort.created_at)}
-                                    </div>
+                                    <div>{formatDate(cohort.created_at)}</div>
                                   )}
                                 </div>
                               </div>
