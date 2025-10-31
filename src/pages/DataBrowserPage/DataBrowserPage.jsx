@@ -150,19 +150,47 @@ export default function MedicalDataBrowser() {
       });
 
       // refreshConcepts() 내부 매핑 부분
+      // refreshConcepts() 내부
       const toNum = (v) => {
         if (v == null) return 0;
-        const n = typeof v === 'string' ? Number(v.replaceAll(',', '')) : v;
-        return Number.isFinite(n) ? n : 0;
+        if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+        if (typeof v === 'string') {
+          const n = Number(v.replaceAll(',', ''));
+          return Number.isFinite(n) ? n : 0;
+        }
+        return 0;
+      };
+
+// vocabulary_counts에서 "첫 번째 숫자"를 안전하게 꺼내는 헬퍼
+      const firstNumber = (input) => {
+        if (input == null) return 0;
+        if (typeof input === 'number') return toNum(input);
+        if (typeof input === 'string') return toNum(input);
+        if (Array.isArray(input)) {
+          for (const el of input) {
+            const n = firstNumber(el);
+            if (n) return n;
+          }
+          return 0;
+        }
+        if (typeof input === 'object') {
+          for (const v of Object.values(input)) {
+            const n = firstNumber(v);
+            if (n) return n;
+          }
+          return 0;
+        }
+        return 0;
       };
 
       const mapped = (raw || []).map((row, idx) => {
-        const count = toNum(
+        // OMOP 기준에서 쓸 원본 카운트
+        const omopCount = toNum(
           row.total_participant_count ?? row.person_count ?? row.count
         );
 
-        const pct =
-          participants && participants > 0 ? (count / participants) * 100 : null;
+        // SNUH 기준에서 쓸 카운트 (vocabulary_counts의 첫 숫자)
+        const snuhCount = firstNumber(row.vocabulary_counts);
 
         const snuhList = Array.isArray(row.mapped_source_codes)
           ? row.mapped_source_codes.filter(Boolean)
@@ -173,16 +201,24 @@ export default function MedicalDataBrowser() {
           conceptId: row.concept_id,
           code: row.concept_id ?? '-',
           name: row.concept_name ?? '-',
+
+          // SNUH 매핑 정보
           snuhId: snuhList[0] ?? '-',
           allSnuhIds: snuhList,
-          count,
-          percentage: pct,
-          mapped_source_codes: snuhList,
-          descendent_concept: row.descendent_concept || [],
-          source: row.descendent_concept || [],
+          snuhIdCount: row.vocabulary_counts ?? {},
+
+          // 두 기준의 원천 카운트 모두 보관
+          omopCount,
+          snuhCount,
+
+          // 아래 둘은 currentData 단계에서 sortBy에 맞춰 계산할 거라 여기선 채우지 않아도 됨
+          // count: (렌더 단계에서 세팅)
+          // percentage: (렌더 단계에서 세팅)
+
           _raw: row,
         };
       });
+
 
 
 
@@ -246,13 +282,13 @@ export default function MedicalDataBrowser() {
 
   // 리스트 데이터 가공
   const currentData = (() => {
-    const data = concepts;
+    const participants = summaryByKey[activeTab]?.participant_count ?? 0;
 
-    // 클라이언트 추가 필터: 이름/SNUH 코드 포함 검색 (description 제거)
-    let filteredData = data;
+// 1) 필터
+    let filteredData = concepts;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      filteredData = data.filter(
+      filteredData = concepts.filter(
         (item) =>
           (item.name ?? '-').toLowerCase().includes(q) ||
           (item.allSnuhIds || []).some((code) =>
@@ -261,9 +297,19 @@ export default function MedicalDataBrowser() {
       );
     }
 
+// 2) sortBy 기준으로 count/percentage를 주입
+    const enriched = filteredData.map((item) => {
+      const count = sortBy === 'snuh' ? item.snuhCount : item.omopCount;
+      const percentage =
+        participants > 0 && typeof count === 'number'
+          ? (count / participants) * 100
+          : null;
+      return { ...item, count, percentage };
+    });
+
     if (sortBy === 'snuh') {
       const flattened = [];
-      const sortedParents = [...filteredData].sort((a, b) => {
+      const sortedParents = [...enriched].sort((a, b) => {
         const ap = a.percentage ?? -1;
         const bp = b.percentage ?? -1;
         if (bp !== ap) return bp - ap;
@@ -275,13 +321,15 @@ export default function MedicalDataBrowser() {
         const parentKey = `${activeTab}-${parent.id}`;
         const expanded = expandedSnuhGroups.has(parentKey);
         flattened.push({ ...parent, isParent: true, _expanded: expanded });
+
         if (expanded) {
+          // 자식들도 동일 분모로 계산: 여기선 부모의 snuhCount를 그대로 노출(요구사항)
           const children = (parent.allSnuhIds || []).map((code, idx) => ({
             isChild: true,
             parentId: parent.id,
             childId: `${parent.id}-${idx}`,
             snuhId: code,
-            count: '-', // 데이터 없음 → 렌더 가드
+            count: parent.snuhCount ?? 0, // ← vocabulary_counts 첫 숫자
           }));
           flattened.push(...children);
         }
@@ -289,7 +337,8 @@ export default function MedicalDataBrowser() {
       return flattened;
     }
 
-    const sorted = [...filteredData].sort((a, b) => {
+// OMOP 기본 정렬
+    const sorted = [...enriched].sort((a, b) => {
       const ap = a.percentage ?? -1;
       const bp = b.percentage ?? -1;
       if (bp !== ap) return bp - ap;
@@ -298,6 +347,7 @@ export default function MedicalDataBrowser() {
     });
 
     return sorted;
+
   })();
 
   const totalPages = Math.ceil(currentData.length / searchLimit);
@@ -396,19 +446,21 @@ export default function MedicalDataBrowser() {
                   </h2>
                   <div className="flex items-center gap-3" />
                 </div>
+                {/* 상단 차트 */}
                 <div className="rounded-xl border border-border bg-card p-6">
                   {(() => {
-                    const chartData = concepts
-                      .filter((d) => typeof d.count === 'number' && d.name)
+                    const chartData = currentData
+                      .filter((d) => !d.isChild && typeof d.count === 'number' && d.name)
                       .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
                       .slice(0, 10)
                       .map((d) => ({
                         name: d.name ?? '-',
-                        count: d.count,
+                        count: d.count, // ← sortBy 반영된 count
                       }));
                     return <TopChart data={chartData} />;
                   })()}
                 </div>
+
               </div>
 
               {/* 정렬/레이아웃 */}
@@ -469,6 +521,7 @@ export default function MedicalDataBrowser() {
                         </div>
                       </div>
 
+                      {/* split, snuh id 기준 열리는 토글*/}
                       <div className="max-h-[600px] divide-y divide-border overflow-y-auto">
                         {paginatedData.map((item, index) => {
                           if (item.isChild) {
@@ -523,9 +576,7 @@ export default function MedicalDataBrowser() {
                                     <div className="mb-2 flex items-start justify-between">
                                       <div>
                                         <h4 className="mb-1 text-lg font-bold text-foreground">
-                                          {item.isParent
-                                            ? startIndex + index + 1
-                                            : ''}
+                                          {startIndex + index + 1}
                                           . {item.name}
                                         </h4>
                                         <div className="flex items-center gap-2">
