@@ -562,6 +562,54 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
     [totalItems, pageSize],
   );
 
+  /** 유틸: API 통계 → UI 스키마 정규화 */
+  function normalizeStats(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+
+    // 1) age 키 변환: "-80--71"  ->  "80-71"
+    const normAge = {};
+    if (raw.age && typeof raw.age === 'object') {
+      for (const [k, v] of Object.entries(raw.age)) {
+        // 숫자 2개 뽑아서 "A-B"로
+        const nums = String(k).match(/-?\d+/g); // 예: ["-80","-71"]
+        if (nums && nums.length >= 2) {
+          const a = Math.abs(parseInt(nums[0], 10));
+          const b = Math.abs(parseInt(nums[1], 10));
+          normAge[`${a}-${b}`] = Number(v) || 0;
+        } else {
+          // 포맷 예외는 원문 유지
+          normAge[k] = Number(v) || 0;
+        }
+      }
+    }
+
+    // 2) top10 키 이름 매핑 (단수 → 복수)
+    const topTenDrugs = raw.topTenDrug || null;
+    const topTenConditions = raw.topTenCondition || null;
+    const topTenProcedures = raw.topTenProcedure || null;
+    const topTenMeasurements = raw.topTenMeasurement || null;
+
+    // 3) count 계산: gender의 MALE+FEMALE 합
+    let derivedCount = undefined;
+    if (raw.gender && (Number(raw.gender.MALE) || Number(raw.gender.FEMALE))) {
+      derivedCount =
+        (Number(raw.gender.MALE) || 0) + (Number(raw.gender.FEMALE) || 0);
+    }
+
+    return {
+      gender: raw.gender ?? null,
+      mortality: raw.mortality ?? null,
+      age: Object.keys(normAge).length ? normAge : (raw.age ?? null),
+      visitType: raw.visitType ?? null,
+      visitCount: raw.visitCount ?? null,
+      topTenDrugs: topTenDrugs ?? null,
+      topTenConditions: topTenConditions ?? null,
+      topTenProcedures: topTenProcedures ?? null,
+      topTenMeasurements: topTenMeasurements ?? null,
+      __derivedCount: derivedCount, // 내부 용도
+    };
+  }
+
   /** ====== 코호트 목록 호출 (실패/빈결과 시 MOCK 폴백) ====== */
   async function fetchCohorts({ page = 1, limit = pageSize, query = '' } = {}) {
     setLoading(true);
@@ -641,10 +689,20 @@ export function CohortHeader({ selectedCohorts, setSelectedCohorts, type }) {
             const arr = Array.isArray(prev) ? prev : [];
             return arr.map((c) => {
               if (!statsMap.has(c.id)) return c;
-              const s = statsMap.get(c.id) || {};
-              // 서버 통계 스키마를 기존 필드에 병합
+
+              // API 통계 정규화
+              const sRaw = statsMap.get(c.id) || {};
+              const s = normalizeStats(sRaw);
+
+              // count: 원래 c.count가 없거나 0이면, gender 합으로 세팅
+              const newCount =
+                c.count && Number(c.count) > 0
+                  ? c.count
+                  : (s.__derivedCount ?? c.count ?? 0);
+
               return {
                 ...c,
+                count: newCount,
                 gender: s.gender ?? c.gender ?? null,
                 mortality: s.mortality ?? c.mortality ?? null,
                 age: s.age ?? c.age ?? null,
