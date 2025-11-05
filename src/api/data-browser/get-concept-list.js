@@ -19,16 +19,16 @@ export async function getDomainConcepts({
   tabKey,
   keyword = '',
   cohortIds = [],
-  page = 1
+  page = 1,
 }) {
   const baseURL = import.meta.env.VITE_PUBLIC_API_URI || '';
 
-  // ✅ Swagger 명세에 맞는 domain 값으로 변환
+  // Swagger 명세에 맞는 domain 값으로 변환
   const domain = TAB_TO_DOMAIN[tabKey] || tabKey;
 
   const url = `${baseURL}/data-browser/domains/${domain}/concepts`;
 
-  // ✅ query string 구성
+  // query string 구성
   const params = {};
   if (Array.isArray(cohortIds) && cohortIds.length > 0) {
     params.cohortIds = cohortIds.join(',');
