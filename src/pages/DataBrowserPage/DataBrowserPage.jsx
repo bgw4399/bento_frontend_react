@@ -654,11 +654,11 @@ export default function MedicalDataBrowser() {
                 {/* 상단 차트 */}
                 <div className="min-w-0 rounded-xl border border-border bg-card p-6">
                   {conceptsLoading ? (
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground w-full text-center">
                       Loading…
                     </div>
                   ) : conceptsError ? (
-                    <div className="text-sm text-destructive">Error</div>
+                    <div className="text-sm text-destructive w-full text-center">Error</div>
                   ) : currentData.filter(
                       (d) => !d.isChild && typeof d.count === 'number',
                     ).length === 0 ? (
