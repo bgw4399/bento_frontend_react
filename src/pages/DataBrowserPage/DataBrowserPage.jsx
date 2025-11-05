@@ -95,10 +95,8 @@ export default function MedicalDataBrowser() {
   const [activeTab, setActiveTab] = useState('conditions');
   const [expandedItems, setExpandedItems] = useState(new Set());
   const [selectedCohorts, setSelectedCohorts] = useState([]);
-  const [layoutMode, setLayoutMode] = useState('split'); // "split" | "traditional"
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const [sortBy, setSortBy] = useState('default'); // "default" | "snuh"
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedSnuhGroups, setExpandedSnuhGroups] = useState(new Set());
 
@@ -118,6 +116,16 @@ export default function MedicalDataBrowser() {
   const [conceptsPage, setConceptsPage] = useState(1); // 현재 페이지 (1-based)
   const [conceptsPageSize, setConceptsPageSize] = useState(0); // 한 페이지당 개수
   const [conceptsTotalPages, setConceptsTotalPages] = useState(1); // 전체 페이지 수
+
+  // 정렬 기준 상태
+  // - 'default'  : OMOP CDM 기준
+  // - 'snuh'     : SNUH ID 기준
+  const [sortBy, setSortBy] = useState('default');
+
+  // 레이아웃 모드 상태
+  // - 'split'        : 좌측 리스트 + 우측 상세 패널 나란히
+  // - 'traditional'  : 리스트만 세로로 길게, 각 행 아래에 상세를 펼침
+  const [layoutMode, setLayoutMode] = useState('split');
 
   function normalizeConceptsResponse(res) {
     if (!res || typeof res !== 'object') {
@@ -539,7 +547,7 @@ export default function MedicalDataBrowser() {
           type={'DataBrowser'}
         />
 
-        {/* 🔎 검색바 */}
+        {/* 검색바 */}
         <section className="">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="py-8">
@@ -554,8 +562,12 @@ export default function MedicalDataBrowser() {
                     className="h-12 pl-12"
                   />
                 </div>
-                <Button onClick={handleSearch} className="h-12 px-8">
-                  Search
+                <Button
+                  onClick={handleSearch}
+                  className="h-12 px-8"
+                  disabled={summaryLoading || conceptsLoading}
+                >
+                  {conceptsLoading || summaryLoading ? 'Loading…' : 'Search'}
                 </Button>
               </div>
 
@@ -585,18 +597,37 @@ export default function MedicalDataBrowser() {
                         <Icon className="h-5 w-5 shrink-0" />
                         <div className="text-left">
                           <div className="font-semibold">{category.label}</div>
-                          <div className="text-xs opacity-70">
-                            {typeof concepts === 'number'
-                              ? concepts.toLocaleString()
-                              : 0}{' '}
-                            concepts
-                          </div>
-                          <div className="text-xs opacity-70">
-                            {typeof participants === 'number'
-                              ? participants.toLocaleString()
-                              : 0}{' '}
-                            participants
-                          </div>
+
+                          {summaryLoading ? (
+                            <>
+                              <div className="text-xs opacity-70">Loading…</div>
+                              <div className="text-xs opacity-70">Loading…</div>
+                            </>
+                          ) : summaryError ? (
+                            <>
+                              <div className="text-xs text-destructive opacity-70">
+                                Error
+                              </div>
+                              <div className="text-xs text-destructive opacity-70">
+                                Error
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-xs opacity-70">
+                                {typeof concepts === 'number'
+                                  ? concepts.toLocaleString()
+                                  : 0}{' '}
+                                concepts
+                              </div>
+                              <div className="text-xs opacity-70">
+                                {typeof participants === 'number'
+                                  ? participants.toLocaleString()
+                                  : 0}{' '}
+                                participants
+                              </div>
+                            </>
+                          )}
                         </div>
                       </button>
                     );
@@ -607,7 +638,7 @@ export default function MedicalDataBrowser() {
           </div>
         </section>
 
-        {/* Analytics 섹션 */}
+        {/* top chart 섹션 */}
         <section className="py-8">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="space-y-8">
@@ -622,20 +653,29 @@ export default function MedicalDataBrowser() {
                 </div>
                 {/* 상단 차트 */}
                 <div className="min-w-0 rounded-xl border border-border bg-card p-6">
-                  {(() => {
-                    const chartData = currentData
-                      .filter(
-                        (d) =>
-                          !d.isChild && typeof d.count === 'number' && d.name,
-                      )
-                      .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
-                      .slice(0, 10)
-                      .map((d) => ({
-                        name: d.name ?? '-',
-                        count: d.count, // ← sortBy 반영된 count
-                      }));
-                    return <TopChart data={chartData} />;
-                  })()}
+                  {conceptsLoading ? (
+                    <div className="text-sm text-muted-foreground">
+                      Loading…
+                    </div>
+                  ) : conceptsError ? (
+                    <div className="text-sm text-destructive">Error</div>
+                  ) : currentData.filter(
+                      (d) => !d.isChild && typeof d.count === 'number',
+                    ).length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No data</div>
+                  ) : (
+                    (() => {
+                      const chartData = currentData
+                        .filter(
+                          (d) =>
+                            !d.isChild && typeof d.count === 'number' && d.name,
+                        )
+                        .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
+                        .slice(0, 10)
+                        .map((d) => ({ name: d.name ?? '-', count: d.count }));
+                      return <TopChart data={chartData} />;
+                    })()
+                  )}
                 </div>
               </div>
 
@@ -685,10 +725,13 @@ export default function MedicalDataBrowser() {
                 </div>
               </div>
 
+              {/* 레이아웃 분기
+                  - layoutMode === 'split'
+                  - layoutMode === 'traditional'*/}
               {/* 본문 리스트/상세 */}
               {layoutMode === 'split' ? (
                 <div className="grid grid-cols-12 gap-6">
-                  {/* 리스트 */}
+                  {/* ==== split layout ==== */}
                   <div className="col-span-6">
                     <div className="overflow-hidden rounded-xl border border-border bg-card">
                       <div className="border-b border-border bg-muted/30 px-6 py-4">
@@ -822,37 +865,36 @@ export default function MedicalDataBrowser() {
                       <div className="border-t border-border bg-muted/20 px-6 py-4">
                         <div className="flex items-center justify-between">
                           <div className="text-sm text-muted-foreground">
-                            Showing {currentPage === 0 ? 0 : startIndex + 1}-
-                            {Math.min(endIndex, conceptsTotal || 0)} of{' '}
-                            {conceptsTotal || 0} items
+                            {conceptsLoading
+                              ? 'Loading…'
+                              : `Showing ${currentPage === 0 ? 0 : startIndex + 1}-${Math.min(endIndex, conceptsTotal || 0)} of ${conceptsTotal || 0} items`}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setCurrentPage((p) => Math.max(1, p - 1))
-                              }
-                              disabled={currentPage === 1}
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <div className="text-sm font-medium">
-                              Page {currentPage} of {totalPages}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setCurrentPage((p) =>
-                                  Math.min(totalPages, p + 1),
-                                )
-                              }
-                              disabled={currentPage === totalPages}
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setCurrentPage((p) => Math.max(1, p - 1))
+                            }
+                            disabled={currentPage === 1 || conceptsLoading}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <div className="text-sm font-medium">
+                            Page {currentPage} of {totalPages}
                           </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setCurrentPage((p) => Math.min(totalPages, p + 1))
+                            }
+                            disabled={
+                              currentPage === totalPages || conceptsLoading
+                            }
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -1044,13 +1086,13 @@ export default function MedicalDataBrowser() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                      // ✅ 클릭 시 선택된 아이템 상태 변경
+                                      // 클릭 시 선택된 아이템 상태 변경
                                       setSelectedItem(item);
 
-                                      // ✅ 클릭과 동시에 상세 API 호출 (Age/Sex 그래프용)
+                                      // 클릭과 동시에 상세 API 호출 (Age/Sex 그래프용)
                                       fetchConceptDetailsFor(item);
 
-                                      // ✅ 펼침/접힘 상태 토글
+                                      // 펼침/접힘 상태 토글
                                       setExpandedItems((prev) => {
                                         const n = new Set(prev);
                                         const key = `${activeTab}-${item.id}`;
@@ -1270,35 +1312,32 @@ export default function MedicalDataBrowser() {
 
                   <div className="flex items-center justify-between rounded-xl border border-border bg-card px-6 py-4">
                     <div className="text-sm text-muted-foreground">
-                      Showing {currentPage === 0 ? 0 : startIndex + 1}-
-                      {Math.min(endIndex, conceptsTotal || 0)} of{' '}
-                      {conceptsTotal || 0} items
+                      {conceptsLoading
+                        ? 'Loading…'
+                        : `Showing ${currentPage === 0 ? 0 : startIndex + 1}-${Math.min(endIndex, conceptsTotal || 0)} of ${conceptsTotal || 0} items`}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setCurrentPage((p) => Math.max(1, p - 1))
-                        }
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <div className="text-sm font-medium">
-                        Page {currentPage} of {totalPages}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setCurrentPage((p) => Math.min(totalPages, p + 1))
-                        }
-                        disabled={currentPage >= totalPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1 || conceptsLoading}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm font-medium">
+                      Page {currentPage} of {totalPages}
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages || conceptsLoading}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               )}
