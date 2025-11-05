@@ -92,8 +92,6 @@ export default function MedicalDataBrowser() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLimit, setSearchLimit] = useState(50);
   const [hasSearched, setHasSearched] = useState(true);
-  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
-
   const [activeTab, setActiveTab] = useState('conditions');
   const [expandedItems, setExpandedItems] = useState(new Set());
   const [selectedCohorts, setSelectedCohorts] = useState([]);
@@ -368,15 +366,15 @@ export default function MedicalDataBrowser() {
       tab: activeTab,
       page: currentPage,
       cohorts: cohortIds,
-      q: debouncedQuery,
+      // 검색은 버튼(핸들러)에서 직접 호출하므로 키에서 제외
     });
 
     if (lastConceptsFetchKeyRef.current === fetchKey) return;
     lastConceptsFetchKeyRef.current = fetchKey;
 
-    refreshConcepts(); // 내부에서 searchQuery를 쓰고 있으니 그대로 OK
+    refreshConcepts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentPage, selectedCohorts, debouncedQuery]);
+  }, [activeTab, currentPage, selectedCohorts]);
 
   // 4) 선택 아이템/탭/코호트 변경 → 상세 데이터 로드
   useEffect(() => {
@@ -391,32 +389,13 @@ export default function MedicalDataBrowser() {
     setExpandedItems(new Set());
   }, [activeTab]);
 
-  // 6) 검색창에 텍스트 입력 후 400ms 뒤에 debouncedQuery 확정
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(searchQuery), 400);
-    return () => clearTimeout(t);
-  }, [searchQuery]);
-
   // 검색 버튼
   const handleSearch = () => {
     setHasSearched(true);
     setExpandedItems(new Set());
     setCurrentPage(1);
-
-    // 즉시 호출 전에 fetchKey 기록해 중복 방지
-    const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
-    lastConceptsFetchKeyRef.current = JSON.stringify({
-      tab: activeTab,
-      page: 1,
-      cohorts: cohortIds,
-      q: searchQuery,
-    });
-
     refreshSummary(searchQuery);
     refreshConcepts();
-
-    // 디바운스 대기 없이 바로 디바운스 상태도 동기화
-    setDebouncedQuery(searchQuery);
   };
 
   const toggleSnuhGroup = (itemId) => {
@@ -436,7 +415,17 @@ export default function MedicalDataBrowser() {
     const participants = summaryByKey[activeTab]?.participant_count ?? 0;
 
     // 1) 필터
-    const filteredData = concepts;
+    let filteredData = concepts;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filteredData = concepts.filter(
+        (item) =>
+          (item.name ?? '-').toLowerCase().includes(q) ||
+          (item.allSnuhIds || []).some((code) =>
+            (code || '').toLowerCase().includes(q),
+          ),
+      );
+    }
 
     // 2) sortBy 기준으로 count/percentage를 주입
     const enriched = filteredData.map((item) => {
