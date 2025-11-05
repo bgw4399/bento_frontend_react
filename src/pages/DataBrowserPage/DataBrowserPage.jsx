@@ -119,12 +119,6 @@ export default function MedicalDataBrowser() {
   const [conceptsPage, setConceptsPage] = useState(1); // 1-based
   const [conceptsTotal, setConceptsTotal] = useState(0); // 전체 개수
 
-  const totalPages = Math.max(1, Math.ceil((conceptsTotal ?? 0) / searchLimit));
-  const startIndex = (currentPage - 1) * searchLimit; // 0-based 시작 인덱스
-  const endIndex = startIndex + currentData.length; // 서버가 준 현재 페이지 개수만큼
-  const paginatedData = currentData;
-  const activeCategory = tabConfig.find((t) => t.key === activeTab);
-
   const normalizeConceptsResponse = (res) => {
     // concepts 래퍼를 먼저 벗긴다
     const box =
@@ -551,6 +545,12 @@ export default function MedicalDataBrowser() {
 
     return sorted;
   })();
+
+  const totalPages = Math.max(1, Math.ceil((conceptsTotal ?? 0) / searchLimit));
+  const startIndex = (currentPage - 1) * searchLimit; // 0-based 시작 인덱스
+  const endIndex = startIndex + currentData.length; // 서버가 준 현재 페이지 개수만큼
+  const paginatedData = currentData;
+  const activeCategory = tabConfig.find((t) => t.key === activeTab);
 
   return (
     <div className="min-h-screen bg-background">
