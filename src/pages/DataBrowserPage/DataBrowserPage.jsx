@@ -117,49 +117,22 @@ export default function MedicalDataBrowser() {
   const [conceptsPage, setConceptsPage] = useState(1); // 1-based
   const [conceptsTotal, setConceptsTotal] = useState(0); // 전체 개수
 
-  const normalizeConceptsResponse = (res) => {
-    // concepts 래퍼를 먼저 벗긴다
-    const box =
-      res && typeof res === 'object' && 'concepts' in res ? res.concepts : res;
-
-    if (Array.isArray(box)) return { list: box, page: 0, total: box.length };
-
-    if (box && typeof box === 'object') {
-      const list = Array.isArray(box.items)
-        ? box.items
-        : Array.isArray(box.content)
-          ? box.content
-          : Array.isArray(box.data)
-            ? box.data
-            : Array.isArray(box.results)
-              ? box.results
-              : Array.isArray(box.list)
-                ? box.list
-                : [];
-
-      const page0 =
-        typeof box.page === 'number'
-          ? box.page
-          : typeof box.pageNumber === 'number'
-            ? box.pageNumber
-            : typeof box.page_index === 'number'
-              ? box.page_index
-              : 0;
-
-      const total =
-        typeof box.total === 'number'
-          ? box.total
-          : typeof box.totalElements === 'number'
-            ? box.totalElements
-            : typeof box.total_count === 'number'
-              ? box.total_count
-              : list.length;
-
-      return { list, page: page0, total };
+  function normalizeConceptsResponse(res) {
+    if (!res || typeof res !== 'object') {
+      return { list: [], page: 0, total: 0, size: 0, totalPages: 1 };
     }
 
-    return { list: [], page: 0, total: 0 };
-  };
+    // 서버는 concepts 배열, page(0-based), total(전체 개수)
+    const list = Array.isArray(res.concepts) ? res.concepts : [];
+    const page = typeof res.page === 'number' ? res.page : 0;
+    const total = typeof res.total === 'number' ? res.total : list.length;
+
+    // 한 페이지당 개수 계산
+    const size = list.length;
+    const totalPages = size > 0 ? Math.max(1, Math.ceil(total / size)) : 1;
+
+    return { list, page, total, size, totalPages };
+  }
 
   // 탭 키를 API domain 형태로 매핑 (labs-measurements → measurements)
   const apiDomainOf = (tabKey) =>
@@ -244,7 +217,13 @@ export default function MedicalDataBrowser() {
         page: currentPage,
       });
 
-      const { list: raw, page: page0, total } = normalizeConceptsResponse(res);
+      const {
+        list: raw,
+        page: page0,
+        total,
+        size,
+        totalPages,
+      } = normalizeConceptsResponse(res);
 
       // vocabulary_counts에서 "첫 번째 숫자"를 안전하게 꺼내는 헬퍼
       const firstNumber = (input) => {
@@ -302,6 +281,9 @@ export default function MedicalDataBrowser() {
 
       setConcepts(mapped);
       setConceptsTotal(Number(total) || 0);
+      setConceptsPage((page0 ?? 0) + 1); // 0-based → 1-based로 변환
+      setConceptsPageSize(Number(size) || mapped.length);
+      setConceptsTotalPages(Number(totalPages) || 1);
     } catch (e) {
       console.error(e);
       setConcepts([]);
@@ -364,7 +346,7 @@ export default function MedicalDataBrowser() {
     const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
     const fetchKey = JSON.stringify({
       tab: activeTab,
-      page: currentPage,
+      page: Math.max(0, currentPage - 1),
       cohorts: cohortIds,
       // 검색은 버튼(핸들러)에서 직접 호출하므로 키에서 제외
     });
@@ -535,9 +517,11 @@ export default function MedicalDataBrowser() {
     return sorted;
   })();
 
-  const totalPages = Math.max(1, Math.ceil((conceptsTotal ?? 0) / searchLimit));
-  const startIndex = (currentPage - 1) * searchLimit; // 0-based 시작 인덱스
-  const endIndex = startIndex + currentData.length; // 서버가 준 현재 페이지 개수만큼
+  const totalPages =
+    conceptsTotalPages ||
+    Math.max(1, Math.ceil(conceptsTotal / (conceptsPageSize || 1)));
+  const startIndex = (currentPage - 1) * (conceptsPageSize || searchLimit);
+  const endIndex = startIndex + (conceptsPageSize || currentData.length);
   const paginatedData = currentData;
   const activeCategory = tabConfig.find((t) => t.key === activeTab);
 
