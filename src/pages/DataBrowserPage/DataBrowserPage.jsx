@@ -345,27 +345,50 @@ export default function MedicalDataBrowser() {
     }
   }
 
-  // 최초 + 코호트 변경 시 summary 갱신 후 concepts 동기화
+  // 최상단 훅 근처에 추가
+  const lastConceptsFetchKeyRef = React.useRef(null);
+
+  // 1) 마운트 시 초기 표시 상태만
   useEffect(() => {
+    setHasSearched(true);
+  }, []);
+
+  // 2) 코호트 변경 → 요약 갱신 + 페이지 1로 리셋 (컨셉은 여기서 호출하지 않음)
+  useEffect(() => {
+    setCurrentPage(1);
     refreshSummary(searchQuery);
-    setTimeout(() => refreshConcepts(), 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCohorts]);
 
-  // 탭 변경 시 개념 갱신
+  // 3) 탭/페이지/코호트 변경 → 컨셉 리스트 갱신 (중복 가드)
   useEffect(() => {
+    const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+    const fetchKey = JSON.stringify({
+      tab: activeTab,
+      page: currentPage,
+      cohorts: cohortIds,
+      // 검색은 버튼(핸들러)에서 직접 호출하므로 키에서 제외
+    });
+
+    if (lastConceptsFetchKeyRef.current === fetchKey) return;
+    lastConceptsFetchKeyRef.current = fetchKey;
+
     refreshConcepts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentPage]);
+  }, [activeTab, currentPage, selectedCohorts]);
 
-  // 요약 분모가 바뀌면 다시 계산
-  const activeParticipants = summaryByKey[activeTab]?.participant_count ?? null;
+  // 4) 선택 아이템/탭/코호트 변경 → 상세 데이터 로드
   useEffect(() => {
-    if (activeParticipants !== null) {
-      refreshConcepts();
-    }
+    if (!selectedItem) return;
+    fetchConceptDetailsFor(selectedItem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeParticipants, activeTab]);
+  }, [selectedItem, activeTab, selectedCohorts]);
+
+  // 5) 탭 전환 시 리스트 선택/펼침 초기화
+  useEffect(() => {
+    setSelectedItem(null);
+    setExpandedItems(new Set());
+  }, [activeTab]);
 
   // 검색 버튼
   const handleSearch = () => {
@@ -383,21 +406,6 @@ export default function MedicalDataBrowser() {
       return n;
     });
   };
-
-  useEffect(() => {
-    setHasSearched(true);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedItem) return;
-    fetchConceptDetailsFor(selectedItem);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedItem, activeTab, selectedCohorts]);
-
-  useEffect(() => {
-    setSelectedItem(null);
-    setExpandedItems(new Set());
-  }, [activeTab]);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') handleSearch();
