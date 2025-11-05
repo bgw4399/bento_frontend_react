@@ -114,8 +114,10 @@ export default function MedicalDataBrowser() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState('');
 
-  const [conceptsPage, setConceptsPage] = useState(1); // 1-based
-  const [conceptsTotal, setConceptsTotal] = useState(0); // 전체 개수
+  const [conceptsTotal, setConceptsTotal] = useState(0);
+  const [conceptsPage, setConceptsPage] = useState(1); // 현재 페이지 (1-based)
+  const [conceptsPageSize, setConceptsPageSize] = useState(0); // 한 페이지당 개수
+  const [conceptsTotalPages, setConceptsTotalPages] = useState(1); // 전체 페이지 수
 
   function normalizeConceptsResponse(res) {
     if (!res || typeof res !== 'object') {
@@ -210,11 +212,12 @@ export default function MedicalDataBrowser() {
 
       const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
 
+      const serverPage = Math.max(0, currentPage - 1);
       const res = await getDomainConcepts({
         tabKey: activeTab, // e.g. 'conditions'
         keyword: searchQuery, // 검색창 입력값
         cohortIds,
-        page: currentPage,
+        page: serverPage,
       });
 
       const {
@@ -521,7 +524,9 @@ export default function MedicalDataBrowser() {
     conceptsTotalPages ||
     Math.max(1, Math.ceil(conceptsTotal / (conceptsPageSize || 1)));
   const startIndex = (currentPage - 1) * (conceptsPageSize || searchLimit);
-  const endIndex = startIndex + (conceptsPageSize || currentData.length);
+  // 서버 페이징을 쓰므로 이번 페이지 실제 개수로 끝 인덱스 표시
+  const pageCountNow = concepts.length; // 이번에 받은 리스트 길이
+  const endIndex = startIndex + (pageCountNow || conceptsPageSize || 0);
   const paginatedData = currentData;
   const activeCategory = tabConfig.find((t) => t.key === activeTab);
 
