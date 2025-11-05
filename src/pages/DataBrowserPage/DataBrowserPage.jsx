@@ -114,11 +114,11 @@ export default function MedicalDataBrowser() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState('');
 
-  const [conceptsPage, setConceptsPage] = useState(1);   // 1-based
+  const [conceptsPage, setConceptsPage] = useState(1); // 1-based
   const [conceptsTotal, setConceptsTotal] = useState(0); // 전체 개수
 
   const normalizeConceptsResponse = (res) => {
-    // ✅ concepts 래퍼를 먼저 벗긴다
+    // concepts 래퍼를 먼저 벗긴다
     const box =
       res && typeof res === 'object' && 'concepts' in res ? res.concepts : res;
 
@@ -161,15 +161,13 @@ export default function MedicalDataBrowser() {
     return { list: [], page: 0, total: 0 };
   };
 
-
-// 탭 키를 API domain 형태로 매핑 (labs-measurements → measurements)
+  // 탭 키를 API domain 형태로 매핑 (labs-measurements → measurements)
   const apiDomainOf = (tabKey) =>
     tabKey === 'labs-measurements' ? 'measurements' : tabKey;
 
-// 도메인 + conceptId + cohortIds 조합으로 캐시 키 만들기
+  // 도메인 + conceptId + cohortIds 조합으로 캐시 키 만들기
   const detailsKeyOf = (domain, conceptId, cohortIds) =>
     `${domain}:${conceptId}:${(cohortIds || []).slice(0, 5).join('|')}`;
-
 
   // 탭 키 → summary row 매핑
   const summaryByKey = useMemo(() => {
@@ -249,7 +247,7 @@ export default function MedicalDataBrowser() {
 
       const { list: raw, page: page0, total } = normalizeConceptsResponse(res);
 
-// vocabulary_counts에서 "첫 번째 숫자"를 안전하게 꺼내는 헬퍼
+      // vocabulary_counts에서 "첫 번째 숫자"를 안전하게 꺼내는 헬퍼
       const firstNumber = (input) => {
         if (input == null) return 0;
         if (typeof input === 'number') return toNum(input);
@@ -274,7 +272,7 @@ export default function MedicalDataBrowser() {
       const mapped = (raw || []).map((row, idx) => {
         // OMOP 기준에서 쓸 원본 카운트
         const omopCount = toNum(
-          row.total_participant_count ?? row.person_count ?? row.count
+          row.total_participant_count ?? row.person_count ?? row.count,
         );
 
         // SNUH 기준에서 쓸 카운트 (vocabulary_counts의 첫 숫자)
@@ -299,16 +297,9 @@ export default function MedicalDataBrowser() {
           omopCount,
           snuhCount,
 
-          // 아래 둘은 currentData 단계에서 sortBy에 맞춰 계산할 거라 여기선 채우지 않아도 됨
-          // count: (렌더 단계에서 세팅)
-          // percentage: (렌더 단계에서 세팅)
-
           _raw: row,
         };
       });
-
-
-
 
       setConcepts(mapped);
       setConceptsTotal(Number(total) || 0);
@@ -335,17 +326,17 @@ export default function MedicalDataBrowser() {
       if (detailsByKey[key]) return;
 
       const conceptId = item.conceptId ?? item.id;
-           if (domain === 'measurements') {
-               // demographics + values 병렬 호출
-                 const [demo, values] = await Promise.all([
-                   getConceptDetails({ domain, conceptId, cohortIds }),
-                   getMeasurementValues({ conceptId, cohortIds }),
-                 ]);
-               setDetailsByKey((prev) => ({ ...prev, [key]: { ...demo, values } }));
-             } else {
-               const demo = await getConceptDetails({ domain, conceptId, cohortIds });
-               setDetailsByKey((prev) => ({ ...prev, [key]: demo }));
-             }
+      if (domain === 'measurements') {
+        // demographics + values 병렬 호출
+        const [demo, values] = await Promise.all([
+          getConceptDetails({ domain, conceptId, cohortIds }),
+          getMeasurementValues({ conceptId, cohortIds }),
+        ]);
+        setDetailsByKey((prev) => ({ ...prev, [key]: { ...demo, values } }));
+      } else {
+        const demo = await getConceptDetails({ domain, conceptId, cohortIds });
+        setDetailsByKey((prev) => ({ ...prev, [key]: demo }));
+      }
     } catch (e) {
       console.error(e);
       setDetailsError('Failed to load concept details');
@@ -353,7 +344,6 @@ export default function MedicalDataBrowser() {
       setDetailsLoading(false);
     }
   }
-
 
   // 최초 + 코호트 변경 시 summary 갱신 후 concepts 동기화
   useEffect(() => {
@@ -417,7 +407,7 @@ export default function MedicalDataBrowser() {
   const currentData = (() => {
     const participants = summaryByKey[activeTab]?.participant_count ?? 0;
 
-// 1) 필터
+    // 1) 필터
     let filteredData = concepts;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -430,7 +420,7 @@ export default function MedicalDataBrowser() {
       );
     }
 
-// 2) sortBy 기준으로 count/percentage를 주입
+    // 2) sortBy 기준으로 count/percentage를 주입
     const enriched = filteredData.map((item) => {
       const count = sortBy === 'snuh' ? item.snuhCount : item.omopCount;
       const percentage =
@@ -444,12 +434,16 @@ export default function MedicalDataBrowser() {
       // 1) SNUH ID별 "부모 행"을 평평하게 만든다
       const parents = [];
       for (const item of enriched) {
-        const allSnuhIds = Array.isArray(item.allSnuhIds) && item.allSnuhIds.length
-          ? item.allSnuhIds
-          : (item.snuhId ? [item.snuhId] : ['-']);
+        const allSnuhIds =
+          Array.isArray(item.allSnuhIds) && item.allSnuhIds.length
+            ? item.allSnuhIds
+            : item.snuhId
+              ? [item.snuhId]
+              : ['-'];
 
         for (const code of allSnuhIds) {
-          const cnt = getSnuhCount(item.snuhIdCount, code) || item.snuhCount || 0;
+          const cnt =
+            getSnuhCount(item.snuhIdCount, code) || item.snuhCount || 0;
           const perc =
             participants > 0 && typeof cnt === 'number'
               ? (cnt / participants) * 100
@@ -457,9 +451,9 @@ export default function MedicalDataBrowser() {
 
           parents.push({
             ...item,
-            id: `${item.id}::${code}`,     // 고유 ID (conceptId + SNUH ID)
+            id: `${item.id}::${code}`, // 고유 ID (conceptId + SNUH ID)
             snuhId: code ?? '-',
-            allSnuhIds,                    // related 토글용 전체 묶음 유지
+            allSnuhIds, // related 토글용 전체 묶음 유지
             relatedCount: Math.max(0, allSnuhIds.length - 1),
             count: cnt,
             percentage: perc,
@@ -474,7 +468,8 @@ export default function MedicalDataBrowser() {
         const ap = a.percentage ?? -1;
         const bp = b.percentage ?? -1;
         if (bp !== ap) return bp - ap;
-        if ((b.count ?? -1) !== (a.count ?? -1)) return (b.count ?? 0) - (a.count ?? 0);
+        if ((b.count ?? -1) !== (a.count ?? -1))
+          return (b.count ?? 0) - (a.count ?? 0);
         const nameCmp = (a.name ?? '').localeCompare(b.name ?? '');
         if (nameCmp !== 0) return nameCmp;
         return (a.snuhId ?? '').localeCompare(b.snuhId ?? '');
@@ -489,23 +484,26 @@ export default function MedicalDataBrowser() {
         const isExpanded = expandedSnuhGroups.has(expandKey);
         if (!isExpanded) continue;
 
-        const childrenCodes = (parent.allSnuhIds || []).filter((c) => c !== parent.snuhId);
+        const childrenCodes = (parent.allSnuhIds || []).filter(
+          (c) => c !== parent.snuhId,
+        );
 
         for (let i = 0; i < childrenCodes.length; i++) {
           const code = childrenCodes[i];
-          const childCount = getSnuhCount(parent.snuhIdCount, code) || parent.count;
+          const childCount =
+            getSnuhCount(parent.snuhIdCount, code) || parent.count;
 
           flattened.push({
             isChild: true,
             isParent: false,
             parentId: parent.id,
             childId: `${parent.id}--${code}`,
-            id: `${parent.id}--child--${code}`,  // 렌더 키 안정화
+            id: `${parent.id}--child--${code}`, // 렌더 키 안정화
             name: parent.name,
             code: parent.code,
             snuhId: code,
-            allSnuhIds: parent.allSnuhIds,       // 정보 유지
-            count: childCount,                    // 요구사항: 부모 분모 그대로/또는 개별 카운트
+            allSnuhIds: parent.allSnuhIds, // 정보 유지
+            count: childCount, // 요구사항: 부모 분모 그대로/또는 개별 카운트
             percentage:
               participants > 0 && typeof childCount === 'number'
                 ? (childCount / participants) * 100
@@ -518,8 +516,7 @@ export default function MedicalDataBrowser() {
       return flattened;
     }
 
-
-// OMOP 기본 정렬
+    // OMOP 기본 정렬
     const sorted = [...enriched].sort((a, b) => {
       const ap = a.percentage ?? -1;
       const bp = b.percentage ?? -1;
@@ -529,13 +526,12 @@ export default function MedicalDataBrowser() {
     });
 
     return sorted;
-
   })();
 
   const totalPages = Math.max(1, Math.ceil((conceptsTotal ?? 0) / searchLimit));
-   const startIndex = (currentPage - 1) * searchLimit;              // 0-based 시작 인덱스
-   const endIndex = startIndex + currentData.length;                // 서버가 준 현재 페이지 개수만큼
-   const paginatedData = currentData;
+  const startIndex = (currentPage - 1) * searchLimit; // 0-based 시작 인덱스
+  const endIndex = startIndex + currentData.length; // 서버가 준 현재 페이지 개수만큼
+  const paginatedData = currentData;
   const activeCategory = tabConfig.find((t) => t.key === activeTab);
 
   return (
@@ -629,10 +625,13 @@ export default function MedicalDataBrowser() {
                   <div className="flex items-center gap-3" />
                 </div>
                 {/* 상단 차트 */}
-                <div className="rounded-xl border border-border bg-card p-6 min-w-0">
+                <div className="min-w-0 rounded-xl border border-border bg-card p-6">
                   {(() => {
                     const chartData = currentData
-                      .filter((d) => !d.isChild && typeof d.count === 'number' && d.name)
+                      .filter(
+                        (d) =>
+                          !d.isChild && typeof d.count === 'number' && d.name,
+                      )
                       .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
                       .slice(0, 10)
                       .map((d) => ({
@@ -642,7 +641,6 @@ export default function MedicalDataBrowser() {
                     return <TopChart data={chartData} />;
                   })()}
                 </div>
-
               </div>
 
               {/* 정렬/레이아웃 */}
@@ -761,8 +759,7 @@ export default function MedicalDataBrowser() {
                                     <div className="mb-2 flex items-start justify-between">
                                       <div>
                                         <h4 className="mb-1 text-lg font-bold text-foreground">
-                                          {startIndex + index + 1}
-                                          . {item.name}
+                                          {startIndex + index + 1}. {item.name}
                                         </h4>
                                         <div className="flex items-center gap-2">
                                           <Badge
@@ -829,9 +826,9 @@ export default function MedicalDataBrowser() {
                       <div className="border-t border-border bg-muted/20 px-6 py-4">
                         <div className="flex items-center justify-between">
                           <div className="text-sm text-muted-foreground">
-                             Showing {currentPage === 0 ? 0 : startIndex + 1}
-                             -
-                             {Math.min(endIndex, conceptsTotal || 0)} of {conceptsTotal || 0} items
+                            Showing {currentPage === 0 ? 0 : startIndex + 1}-
+                            {Math.min(endIndex, conceptsTotal || 0)} of{' '}
+                            {conceptsTotal || 0} items
                           </div>
                           <div className="flex items-center gap-2">
                             <Button
@@ -896,8 +893,14 @@ export default function MedicalDataBrowser() {
                             >
                               {(() => {
                                 const domain = apiDomainOf(activeTab);
-                                const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
-                                const key = detailsKeyOf(domain, selectedItem.conceptId ?? selectedItem.id, cohortIds);
+                                const cohortIds = selectedCohorts
+                                  .map((c) => String(c.id))
+                                  .slice(0, 5);
+                                const key = detailsKeyOf(
+                                  domain,
+                                  selectedItem.conceptId ?? selectedItem.id,
+                                  cohortIds,
+                                );
                                 const details = detailsByKey[key];
 
                                 return (
@@ -908,7 +911,9 @@ export default function MedicalDataBrowser() {
                                       </div>
                                     )}
                                     {detailsError && !details && (
-                                      <div className="mb-3 text-sm text-destructive">{detailsError}</div>
+                                      <div className="mb-3 text-sm text-destructive">
+                                        {detailsError}
+                                      </div>
                                     )}
                                     <DataVisualization
                                       selectedItem={selectedItem}
@@ -916,7 +921,14 @@ export default function MedicalDataBrowser() {
                                       view={layoutMode}
                                       selectedCohorts={selectedCohorts}
                                       // getDomainConcepts row의 원본을 함께 내려준다
-                                      details={details ? { ...details, concept: selectedItem?._raw } : { concept: selectedItem?._raw }}
+                                      details={
+                                        details
+                                          ? {
+                                              ...details,
+                                              concept: selectedItem?._raw,
+                                            }
+                                          : { concept: selectedItem?._raw }
+                                      }
                                     />
                                   </>
                                 );
@@ -1055,11 +1067,14 @@ export default function MedicalDataBrowser() {
                                     View Analytics
                                     <ChevronDown
                                       className={`h-4 w-4 transition-transform ${
-                                        expandedItems.has(`${activeTab}-${item.conceptId}`) ? 'rotate-180' : ''
+                                        expandedItems.has(
+                                          `${activeTab}-${item.conceptId}`,
+                                        )
+                                          ? 'rotate-180'
+                                          : ''
                                       }`}
                                     />
                                   </Button>
-
                                 </div>
                               </div>
                             </div>
@@ -1080,11 +1095,18 @@ export default function MedicalDataBrowser() {
                                         view={layoutMode}
                                         selectedCohorts={selectedCohorts}
                                         details={(() => {
-                                          const domain = activeTab === 'labs-measurements' ? 'measurements' : activeTab;
-                                          const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+                                          const domain =
+                                            activeTab === 'labs-measurements'
+                                              ? 'measurements'
+                                              : activeTab;
+                                          const cohortIds = selectedCohorts
+                                            .map((c) => String(c.id))
+                                            .slice(0, 5);
                                           const key = `${domain}:${item.conceptId ?? item.id}:${cohortIds.join('|')}`;
                                           const det = detailsByKey[key];
-                                          return det ? { ...det, concept: item?._raw } : { concept: item?._raw };
+                                          return det
+                                            ? { ...det, concept: item?._raw }
+                                            : { concept: item?._raw };
                                         })()}
                                       />
                                     </div>
@@ -1181,13 +1203,13 @@ export default function MedicalDataBrowser() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    // ✅ 클릭 시 선택된 아이템 상태 변경
+                                    // 클릭 시 선택된 아이템 상태 변경
                                     setSelectedItem(item);
 
-                                    // ✅ 클릭과 동시에 상세 API 호출 (Age/Sex 그래프용)
+                                    // 클릭과 동시에 상세 API 호출 (Age/Sex 그래프용)
                                     fetchConceptDetailsFor(item);
 
-                                    // ✅ 펼침/접힘 상태 토글
+                                    // 펼침/접힘 상태 토글
                                     setExpandedItems((prev) => {
                                       const n = new Set(prev);
                                       const key = `${activeTab}-${item.id}`;
@@ -1200,11 +1222,14 @@ export default function MedicalDataBrowser() {
                                   View Analytics
                                   <ChevronDown
                                     className={`h-4 w-4 transition-transform ${
-                                      expandedItems.has(`${activeTab}-${item.conceptId}`) ? 'rotate-180' : ''
+                                      expandedItems.has(
+                                        `${activeTab}-${item.conceptId}`,
+                                      )
+                                        ? 'rotate-180'
+                                        : ''
                                     }`}
                                   />
                                 </Button>
-
                               </div>
                             </div>
                           </div>
@@ -1219,17 +1244,22 @@ export default function MedicalDataBrowser() {
                                   >
                                     <DataVisualization
                                       selectedItem={item}
-                                      category={
-                                        apiDomainOf(activeTab)
-                                      }
+                                      category={apiDomainOf(activeTab)}
                                       view={layoutMode}
                                       selectedCohorts={selectedCohorts}
                                       details={(() => {
-                                        const domain = activeTab === 'labs-measurements' ? 'measurements' : activeTab;
-                                        const cohortIds = selectedCohorts.map((c) => String(c.id)).slice(0, 5);
+                                        const domain =
+                                          activeTab === 'labs-measurements'
+                                            ? 'measurements'
+                                            : activeTab;
+                                        const cohortIds = selectedCohorts
+                                          .map((c) => String(c.id))
+                                          .slice(0, 5);
                                         const key = `${domain}:${item.conceptId ?? item.id}:${cohortIds.join('|')}`;
                                         const det = detailsByKey[key];
-                                        return det ? { ...det, concept: item?._raw } : { concept: item?._raw };
+                                        return det
+                                          ? { ...det, concept: item?._raw }
+                                          : { concept: item?._raw };
                                       })()}
                                     />
                                   </div>
@@ -1244,15 +1274,17 @@ export default function MedicalDataBrowser() {
 
                   <div className="flex items-center justify-between rounded-xl border border-border bg-card px-6 py-4">
                     <div className="text-sm text-muted-foreground">
-                      Showing {currentPage === 0 ? 0 : startIndex + 1}
-                      -
-                      {Math.min(endIndex, conceptsTotal || 0)} of {conceptsTotal || 0} items
+                      Showing {currentPage === 0 ? 0 : startIndex + 1}-
+                      {Math.min(endIndex, conceptsTotal || 0)} of{' '}
+                      {conceptsTotal || 0} items
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
                         disabled={currentPage === 1}
                       >
                         <ChevronLeft className="h-4 w-4" />
@@ -1263,12 +1295,13 @@ export default function MedicalDataBrowser() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
                         disabled={currentPage >= totalPages}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Button>
-
                     </div>
                   </div>
                 </div>
