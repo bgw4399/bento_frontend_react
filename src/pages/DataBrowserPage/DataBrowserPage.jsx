@@ -654,11 +654,13 @@ export default function MedicalDataBrowser() {
                 {/* 상단 차트 */}
                 <div className="min-w-0 rounded-xl border border-border bg-card p-6">
                   {conceptsLoading ? (
-                    <div className="text-sm text-muted-foreground w-full text-center">
+                    <div className="w-full text-center text-sm text-muted-foreground">
                       Loading…
                     </div>
                   ) : conceptsError ? (
-                    <div className="text-sm text-destructive w-full text-center">Error</div>
+                    <div className="w-full text-center text-sm text-destructive">
+                      Error
+                    </div>
                   ) : currentData.filter(
                       (d) => !d.isChild && typeof d.count === 'number',
                     ).length === 0 ? (
@@ -725,10 +727,7 @@ export default function MedicalDataBrowser() {
                 </div>
               </div>
 
-              {/* 레이아웃 분기
-                  - layoutMode === 'split'
-                  - layoutMode === 'traditional'*/}
-              {/* 본문 리스트/상세 */}
+              {/* 레이아웃 분기 */}
               {layoutMode === 'split' ? (
                 <div className="grid grid-cols-12 gap-6">
                   {/* ==== split layout ==== */}
@@ -740,126 +739,137 @@ export default function MedicalDataBrowser() {
                         </div>
                       </div>
 
-                      {/* split, snuh id 기준 열리는 토글*/}
+                      {/* split, 리스트 영역 */}
                       <div className="max-h-[600px] divide-y divide-border overflow-y-auto">
-                        {paginatedData.map((item, index) => {
-                          if (item.isChild) {
-                            return (
-                              <div
-                                key={item.childId}
-                                className="px-6 py-3 transition-colors hover:bg-muted/10"
-                              >
-                                <div className="box-border flex w-full items-center gap-3">
-                                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className="flex min-w-0 items-center gap-2">
-                                        <Badge
-                                          variant="outline"
-                                          className="flex-shrink-0 text-xs"
-                                        >
-                                          {item.snuhId}
-                                        </Badge>
+                        {conceptsLoading ? (
+                          <div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
+                            Loading concepts…
+                          </div>
+                        ) : paginatedData.length === 0 ? (
+                          <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+                            No concepts found
+                          </div>
+                        ) : (
+                          paginatedData.map((item, index) => {
+                            if (item.isChild) {
+                              return (
+                                <div
+                                  key={item.childId}
+                                  className="px-6 py-3 transition-colors hover:bg-muted/10"
+                                >
+                                  <div className="box-border flex w-full items-center gap-3">
+                                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                          <Badge
+                                            variant="outline"
+                                            className="flex-shrink-0 text-xs"
+                                          >
+                                            {item.snuhId}
+                                          </Badge>
+                                        </div>
+                                        <span className="shrink-0 text-right text-sm font-medium text-muted-foreground">
+                                          {typeof item.count === 'number'
+                                            ? item.count.toLocaleString()
+                                            : '-'}
+                                        </span>
                                       </div>
-                                      <span className="shrink-0 text-right text-sm font-medium text-muted-foreground">
-                                        {typeof item.count === 'number'
-                                          ? item.count.toLocaleString()
-                                          : '-'}
-                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            const isExpanded = expandedSnuhGroups.has(
+                              `${activeTab}-${item.id}`,
+                            );
+                            const hasRelatedSnuhIds =
+                              Array.isArray(item.allSnuhIds) &&
+                              item.allSnuhIds.length > 1;
+
+                            return (
+                              <div key={item.id}>
+                                <div
+                                  className={`cursor-pointer px-6 py-4 transition-colors ${
+                                    selectedItem?.id === item.id
+                                      ? 'border-r-4 border-primary bg-primary/10'
+                                      : 'hover:bg-muted/20'
+                                  }`}
+                                  onClick={() => {
+                                    setSelectedItem(item);
+                                    fetchConceptDetailsFor(item);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-4">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="mb-2 flex items-start justify-between">
+                                        <div>
+                                          <h4 className="mb-1 text-lg font-bold text-foreground">
+                                            {startIndex + index + 1}.{' '}
+                                            {item.name}
+                                          </h4>
+                                          <div className="flex items-center gap-2">
+                                            <Badge
+                                              variant="outline"
+                                              className="text-xs"
+                                            >
+                                              {item.code}
+                                            </Badge>
+                                            <Badge
+                                              variant="secondary"
+                                              className="text-xs"
+                                            >
+                                              {item.snuhId}
+                                            </Badge>
+                                            {sortBy === 'snuh' &&
+                                              hasRelatedSnuhIds && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleSnuhGroup(
+                                                      `${activeTab}-${item.id}`,
+                                                    );
+                                                  }}
+                                                  className="h-6 px-2"
+                                                >
+                                                  {isExpanded ? (
+                                                    <ChevronDown className="h-3 w-3" />
+                                                  ) : (
+                                                    <ChevronRight className="h-3 w-3" />
+                                                  )}
+                                                  <span className="ml-1 text-xs">
+                                                    {(item.allSnuhIds?.length ||
+                                                      1) - 1}{' '}
+                                                    related
+                                                  </span>
+                                                </Button>
+                                              )}
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className="text-xl font-bold text-primary">
+                                            {typeof item.percentage === 'number'
+                                              ? item.percentage.toFixed(1)
+                                              : '-'}
+                                            %
+                                          </div>
+                                          <div className="mt-1 text-sm text-muted-foreground">
+                                            {typeof item.count === 'number'
+                                              ? item.count.toLocaleString()
+                                              : '-'}
+                                          </div>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
                             );
-                          }
-
-                          const isExpanded = expandedSnuhGroups.has(
-                            `${activeTab}-${item.id}`,
-                          );
-                          const hasRelatedSnuhIds =
-                            Array.isArray(item.allSnuhIds) &&
-                            item.allSnuhIds.length > 1;
-
-                          return (
-                            <div key={item.id}>
-                              <div
-                                className={`cursor-pointer px-6 py-4 transition-colors ${
-                                  selectedItem?.id === item.id
-                                    ? 'border-r-4 border-primary bg-primary/10'
-                                    : 'hover:bg-muted/20'
-                                }`}
-                                onClick={() => {
-                                  setSelectedItem(item);
-                                  fetchConceptDetailsFor(item);
-                                }}
-                              >
-                                <div className="flex items-center gap-4">
-                                  <div className="min-w-0 flex-1">
-                                    <div className="mb-2 flex items-start justify-between">
-                                      <div>
-                                        <h4 className="mb-1 text-lg font-bold text-foreground">
-                                          {startIndex + index + 1}. {item.name}
-                                        </h4>
-                                        <div className="flex items-center gap-2">
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs"
-                                          >
-                                            {item.code}
-                                          </Badge>
-                                          <Badge
-                                            variant="secondary"
-                                            className="text-xs"
-                                          >
-                                            {item.snuhId}
-                                          </Badge>
-                                          {sortBy === 'snuh' &&
-                                            hasRelatedSnuhIds && (
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  toggleSnuhGroup(
-                                                    `${activeTab}-${item.id}`,
-                                                  );
-                                                }}
-                                                className="h-6 px-2"
-                                              >
-                                                {isExpanded ? (
-                                                  <ChevronDown className="h-3 w-3" />
-                                                ) : (
-                                                  <ChevronRight className="h-3 w-3" />
-                                                )}
-                                                <span className="ml-1 text-xs">
-                                                  {(item.allSnuhIds?.length ||
-                                                    1) - 1}{' '}
-                                                  related
-                                                </span>
-                                              </Button>
-                                            )}
-                                        </div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-xl font-bold text-primary">
-                                          {typeof item.percentage === 'number'
-                                            ? item.percentage.toFixed(1)
-                                            : '-'}
-                                          %
-                                        </div>
-                                        <div className="mt-1 text-sm text-muted-foreground">
-                                          {typeof item.count === 'number'
-                                            ? item.count.toLocaleString()
-                                            : '-'}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                          })
+                        )}
                       </div>
 
                       <div className="border-t border-border bg-muted/20 px-6 py-4">
@@ -958,7 +968,6 @@ export default function MedicalDataBrowser() {
                                       category={domain}
                                       view={layoutMode}
                                       selectedCohorts={selectedCohorts}
-                                      // getDomainConcepts row의 원본을 함께 내려준다
                                       details={
                                         details
                                           ? {
@@ -994,44 +1003,189 @@ export default function MedicalDataBrowser() {
               ) : (
                 // === List Layout ===
                 <div className="space-y-4">
-                  {paginatedData.map((item, index) => {
-                    if (item.isChild) {
-                      return (
-                        <div
-                          key={item.childId}
-                          className="ml-12 overflow-hidden rounded-xl border border-border bg-card"
-                        >
-                          <div className="p-4">
-                            <div className="flex items-center gap-3">
-                              <ChevronRight className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <Badge variant="outline">
-                                      {item.snuhId}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                    <span className="font-medium text-muted-foreground">
-                                      {typeof item.count === 'number'
-                                        ? item.count.toLocaleString()
-                                        : '-'}
-                                    </span>
+                  {conceptsLoading ? (
+                    <div className="flex h-[300px] items-center justify-center rounded-xl border border-border bg-card text-sm text-muted-foreground">
+                      Loading concepts…
+                    </div>
+                  ) : paginatedData.length === 0 ? (
+                    <div className="flex h-[200px] items-center justify-center rounded-xl border border-border bg-card text-sm text-muted-foreground">
+                      No concepts found
+                    </div>
+                  ) : (
+                    paginatedData.map((item, index) => {
+                      if (item.isChild) {
+                        return (
+                          <div
+                            key={item.childId}
+                            className="ml-12 overflow-hidden rounded-xl border border-border bg-card"
+                          >
+                            <div className="p-4">
+                              <div className="flex items-center gap-3">
+                                <ChevronRight className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <Badge variant="outline">
+                                        {item.snuhId}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <User className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                      <span className="font-medium text-muted-foreground">
+                                        {typeof item.count === 'number'
+                                          ? item.count.toLocaleString()
+                                          : '-'}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    }
+                        );
+                      }
 
-                    if (sortBy === 'default' && item.isGrouped) {
+                      if (sortBy === 'default' && item.isGrouped) {
+                        return (
+                          <div
+                            className="overflow-hidden rounded-xl border border-border bg-card"
+                            key={item.conceptId}
+                          >
+                            <div className="p-6">
+                              <div className="flex items-center gap-4">
+                                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
+                                  <span className="text-lg font-bold text-primary-foreground">
+                                    {startIndex + index + 1}
+                                  </span>
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="mb-2 flex items-start justify-between">
+                                    <div>
+                                      <h4 className="mb-2 text-xl font-bold text-foreground">
+                                        {item.name}
+                                      </h4>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Badge
+                                          variant="outline"
+                                          className="text-sm"
+                                        >
+                                          {item.code}
+                                        </Badge>
+                                        {item.allSnuhIds.map((snuhId) => (
+                                          <Badge
+                                            key={snuhId}
+                                            variant="secondary"
+                                            className="text-sm"
+                                          >
+                                            {snuhId}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-xl font-bold text-primary">
+                                        {typeof item.percentage === 'number'
+                                          ? item.percentage.toFixed(1)
+                                          : '-'}
+                                        %
+                                      </div>
+                                      <div className="mt-1 text-sm text-muted-foreground">
+                                        {typeof item.count === 'number'
+                                          ? item.count.toLocaleString()
+                                          : '-'}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-6" />
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedItem(item);
+                                        fetchConceptDetailsFor(item);
+                                        setExpandedItems((prev) => {
+                                          const n = new Set(prev);
+                                          const key = `${activeTab}-${item.id}`;
+                                          n.has(key)
+                                            ? n.delete(key)
+                                            : n.add(key);
+                                          return n;
+                                        });
+                                      }}
+                                      className="flex items-center gap-2"
+                                    >
+                                      View Analytics
+                                      <ChevronDown
+                                        className={`h-4 w-4 transition-transform ${
+                                          expandedItems.has(
+                                            `${activeTab}-${item.conceptId}`,
+                                          )
+                                            ? 'rotate-180'
+                                            : ''
+                                        }`}
+                                      />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {expandedItems.has(
+                                `${activeTab}-${item.conceptId}`,
+                              ) && (
+                                <div className="mt-6 border-t border-border pt-6">
+                                  <div className="flex w-full">
+                                    <div className="w-full">
+                                      <div
+                                        className="w-full rounded-lg bg-muted/10 p-4"
+                                        style={{ height: '500px' }}
+                                      >
+                                        <DataVisualization
+                                          selectedItem={item}
+                                          category={apiDomainOf(activeTab)}
+                                          view={layoutMode}
+                                          selectedCohorts={selectedCohorts}
+                                          details={(() => {
+                                            const domain =
+                                              activeTab === 'labs-measurements'
+                                                ? 'measurements'
+                                                : activeTab;
+                                            const cohortIds = selectedCohorts
+                                              .map((c) => String(c.id))
+                                              .slice(0, 5);
+                                            const key = `${domain}:${item.conceptId ?? item.id}:${cohortIds.join('|')}`;
+                                            const det = detailsByKey[key];
+                                            return det
+                                              ? {
+                                                  ...det,
+                                                  concept: item?._raw,
+                                                }
+                                              : { concept: item?._raw };
+                                          })()}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const isExpanded = expandedSnuhGroups.has(
+                        `${activeTab}-${item.id}`,
+                      );
+                      const hasRelatedSnuhIds =
+                        Array.isArray(item.allSnuhIds) &&
+                        item.allSnuhIds.length > 1;
+
                       return (
                         <div
+                          key={item.id}
                           className="overflow-hidden rounded-xl border border-border bg-card"
-                          key={item.conceptId}
                         >
                           <div className="p-6">
                             <div className="flex items-center gap-4">
@@ -1047,22 +1201,43 @@ export default function MedicalDataBrowser() {
                                     <h4 className="mb-2 text-xl font-bold text-foreground">
                                       {item.name}
                                     </h4>
-                                    <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex items-center gap-2">
                                       <Badge
                                         variant="outline"
                                         className="text-sm"
                                       >
                                         {item.code}
                                       </Badge>
-                                      {item.allSnuhIds.map((snuhId) => (
-                                        <Badge
-                                          key={snuhId}
-                                          variant="secondary"
-                                          className="text-sm"
-                                        >
-                                          {snuhId}
-                                        </Badge>
-                                      ))}
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-sm"
+                                      >
+                                        {item.snuhId}
+                                      </Badge>
+                                      {sortBy === 'snuh' &&
+                                        hasRelatedSnuhIds && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                              toggleSnuhGroup(
+                                                `${activeTab}-${item.id}`,
+                                              )
+                                            }
+                                            className="h-7 px-3"
+                                          >
+                                            {isExpanded ? (
+                                              <ChevronDown className="h-4 w-4" />
+                                            ) : (
+                                              <ChevronRight className="h-4 w-4" />
+                                            )}
+                                            <span className="ml-1 text-sm">
+                                              {(item.allSnuhIds?.length || 1) -
+                                                1}{' '}
+                                              related
+                                            </span>
+                                          </Button>
+                                        )}
                                     </div>
                                   </div>
                                   <div className="text-right">
@@ -1086,13 +1261,8 @@ export default function MedicalDataBrowser() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                      // 클릭 시 선택된 아이템 상태 변경
                                       setSelectedItem(item);
-
-                                      // 클릭과 동시에 상세 API 호출 (Age/Sex 그래프용)
                                       fetchConceptDetailsFor(item);
-
-                                      // 펼침/접힘 상태 토글
                                       setExpandedItems((prev) => {
                                         const n = new Set(prev);
                                         const key = `${activeTab}-${item.id}`;
@@ -1117,9 +1287,7 @@ export default function MedicalDataBrowser() {
                               </div>
                             </div>
 
-                            {expandedItems.has(
-                              `${activeTab}-${item.conceptId}`,
-                            ) && (
+                            {expandedItems.has(`${activeTab}-${item.id}`) && (
                               <div className="mt-6 border-t border-border pt-6">
                                 <div className="flex w-full">
                                   <div className="w-full">
@@ -1155,160 +1323,8 @@ export default function MedicalDataBrowser() {
                           </div>
                         </div>
                       );
-                    }
-
-                    const isExpanded = expandedSnuhGroups.has(
-                      `${activeTab}-${item.id}`,
-                    );
-                    const hasRelatedSnuhIds =
-                      Array.isArray(item.allSnuhIds) &&
-                      item.allSnuhIds.length > 1;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="overflow-hidden rounded-xl border border-border bg-card"
-                      >
-                        <div className="p-6">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
-                              <span className="text-lg font-bold text-primary-foreground">
-                                {startIndex + index + 1}
-                              </span>
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="mb-2 flex items-start justify-between">
-                                <div>
-                                  <h4 className="mb-2 text-xl font-bold text-foreground">
-                                    {item.name}
-                                  </h4>
-                                  <div className="flex items-center gap-2">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-sm"
-                                    >
-                                      {item.code}
-                                    </Badge>
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-sm"
-                                    >
-                                      {item.snuhId}
-                                    </Badge>
-                                    {sortBy === 'snuh' && hasRelatedSnuhIds && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          toggleSnuhGroup(
-                                            `${activeTab}-${item.id}`,
-                                          )
-                                        }
-                                        className="h-7 px-3"
-                                      >
-                                        {isExpanded ? (
-                                          <ChevronDown className="h-4 w-4" />
-                                        ) : (
-                                          <ChevronRight className="h-4 w-4" />
-                                        )}
-                                        <span className="ml-1 text-sm">
-                                          {(item.allSnuhIds?.length || 1) - 1}{' '}
-                                          related
-                                        </span>
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-xl font-bold text-primary">
-                                    {typeof item.percentage === 'number'
-                                      ? item.percentage.toFixed(1)
-                                      : '-'}
-                                    %
-                                  </div>
-                                  <div className="mt-1 text-sm text-muted-foreground">
-                                    {typeof item.count === 'number'
-                                      ? item.count.toLocaleString()
-                                      : '-'}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-6" />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    // 클릭 시 선택된 아이템 상태 변경
-                                    setSelectedItem(item);
-
-                                    // 클릭과 동시에 상세 API 호출 (Age/Sex 그래프용)
-                                    fetchConceptDetailsFor(item);
-
-                                    // 펼침/접힘 상태 토글
-                                    setExpandedItems((prev) => {
-                                      const n = new Set(prev);
-                                      const key = `${activeTab}-${item.id}`;
-                                      n.has(key) ? n.delete(key) : n.add(key);
-                                      return n;
-                                    });
-                                  }}
-                                  className="flex items-center gap-2"
-                                >
-                                  View Analytics
-                                  <ChevronDown
-                                    className={`h-4 w-4 transition-transform ${
-                                      expandedItems.has(
-                                        `${activeTab}-${item.conceptId}`,
-                                      )
-                                        ? 'rotate-180'
-                                        : ''
-                                    }`}
-                                  />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {expandedItems.has(`${activeTab}-${item.id}`) && (
-                            <div className="mt-6 border-t border-border pt-6">
-                              <div className="flex w-full">
-                                <div className="w-full">
-                                  <div
-                                    className="w-full rounded-lg bg-muted/10 p-4"
-                                    style={{ height: '500px' }}
-                                  >
-                                    <DataVisualization
-                                      selectedItem={item}
-                                      category={apiDomainOf(activeTab)}
-                                      view={layoutMode}
-                                      selectedCohorts={selectedCohorts}
-                                      details={(() => {
-                                        const domain =
-                                          activeTab === 'labs-measurements'
-                                            ? 'measurements'
-                                            : activeTab;
-                                        const cohortIds = selectedCohorts
-                                          .map((c) => String(c.id))
-                                          .slice(0, 5);
-                                        const key = `${domain}:${item.conceptId ?? item.id}:${cohortIds.join('|')}`;
-                                        const det = detailsByKey[key];
-                                        return det
-                                          ? { ...det, concept: item?._raw }
-                                          : { concept: item?._raw };
-                                      })()}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                    })
+                  )}
 
                   <div className="flex items-center justify-between rounded-xl border border-border bg-card px-6 py-4">
                     <div className="text-sm text-muted-foreground">
