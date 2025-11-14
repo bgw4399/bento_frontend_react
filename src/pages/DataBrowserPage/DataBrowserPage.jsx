@@ -407,21 +407,8 @@ export default function MedicalDataBrowser() {
   const currentData = (() => {
     const participants = summaryByKey[activeTab]?.participant_count ?? 0;
 
-    // 1) 필터
-    let filteredData = concepts;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filteredData = concepts.filter(
-        (item) =>
-          (item.name ?? '-').toLowerCase().includes(q) ||
-          (item.allSnuhIds || []).some((code) =>
-            (code || '').toLowerCase().includes(q),
-          ),
-      );
-    }
-
-    // 2) sortBy 기준으로 count/percentage를 주입
-    const enriched = filteredData.map((item) => {
+    // sortBy 기준으로 count/percentage를 주입
+    const enriched = concepts.map((item) => {
       const count = sortBy === 'snuh' ? item.snuhCount : item.omopCount;
       const percentage =
         participants > 0 && typeof count === 'number'
@@ -503,7 +490,7 @@ export default function MedicalDataBrowser() {
             code: parent.code,
             snuhId: code,
             allSnuhIds: parent.allSnuhIds, // 정보 유지
-            count: childCount, // 요구사항: 부모 분모 그대로/또는 개별 카운트
+            count: childCount,
             percentage:
               participants > 0 && typeof childCount === 'number'
                 ? (childCount / participants) * 100
