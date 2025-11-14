@@ -129,6 +129,9 @@ export default function MedicalDataBrowser() {
   // - 'traditional'  : 리스트만 세로로 길게, 각 행 아래에 상세를 펼침
   const [layoutMode, setLayoutMode] = useState('split');
 
+  // TopChart 데이터 캐시 (탭별)
+  const [topChartDataByTab, setTopChartDataByTab] = useState({});
+
   function normalizeConceptsResponse(res) {
     if (!res || typeof res !== 'object') {
       return { list: [], page: 0, total: 0, size: 0, totalPages: 1 };
@@ -297,6 +300,20 @@ export default function MedicalDataBrowser() {
       setConceptsPage((page0 ?? 0) + 1); // 0-based → 1-based로 변환
       setConceptsPageSize(Number(size) || mapped.length);
       setConceptsTotalPages(Number(totalPages) || 1);
+
+      // TopChart 데이터는 탭마다 한 번만 계산 (정렬/페이지 바뀌어도 유지)
+      setTopChartDataByTab((prev) => {
+        if (prev[activeTab]) return prev; // 이미 계산했으면 그대로
+        const chartBase = mapped
+          .filter((d) => typeof d.omopCount === 'number' && d.name)
+          .sort((a, b) => (b.omopCount ?? 0) - (a.omopCount ?? 0))
+          .slice(0, 10)
+          .map((d) => ({
+            name: d.name ?? '-',
+            count: d.omopCount ?? 0,
+          }));
+        return { ...prev, [activeTab]: chartBase };
+      });
     } catch (e) {
       console.error(e);
       setConcepts([]);
@@ -346,9 +363,10 @@ export default function MedicalDataBrowser() {
     setHasSearched(true);
   }, []);
 
-  // 2) 코호트 변경 → 요약 갱신 + 페이지 1로 리셋 (컨셉은 여기서 호출하지 않음)
+  // 2) 코호트 변경 → 요약 갱신 + 페이지 1로 리셋 + 차트 캐시 초기화
   useEffect(() => {
     setCurrentPage(1);
+    setTopChartDataByTab({});
     refreshSummary(searchQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCohorts]);
@@ -397,6 +415,7 @@ export default function MedicalDataBrowser() {
     setExpandedItems(new Set());
     setExpandedSnuhGroups(new Set());
     setCurrentPage(1);
+    setTopChartDataByTab({});
     refreshSummary(searchQuery);
     refreshConcepts();
   };
@@ -607,6 +626,10 @@ export default function MedicalDataBrowser() {
   const paginatedData = currentData;
   const activeCategory = tabConfig.find((t) => t.key === activeTab);
 
+  // 현재 탭의 TopChart 데이터
+  const topChartData = topChartDataByTab[activeTab] || [];
+  const hasChartData = topChartData.length > 0;
+
   return (
     <div className="min-h-screen bg-background">
       <main>
@@ -722,30 +745,18 @@ export default function MedicalDataBrowser() {
                 </div>
                 {/* 상단 차트 */}
                 <div className="min-w-0 rounded-xl border border-border bg-card p-6">
-                  {conceptsLoading ? (
+                  {!hasChartData && conceptsLoading ? (
                     <div className="w-full text-center text-sm text-muted-foreground">
                       Loading…
                     </div>
-                  ) : conceptsError ? (
+                  ) : conceptsError && !hasChartData ? (
                     <div className="w-full text-center text-sm text-destructive">
                       Error
                     </div>
-                  ) : currentData.filter(
-                      (d) => !d.isChild && typeof d.count === 'number',
-                    ).length === 0 ? (
+                  ) : !hasChartData ? (
                     <div className="text-sm text-muted-foreground">No data</div>
                   ) : (
-                    (() => {
-                      const chartData = currentData
-                        .filter(
-                          (d) =>
-                            !d.isChild && typeof d.count === 'number' && d.name,
-                        )
-                        .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
-                        .slice(0, 10)
-                        .map((d) => ({ name: d.name ?? '-', count: d.count }));
-                      return <TopChart data={chartData} />;
-                    })()
+                    <TopChart data={topChartData} />
                   )}
                 </div>
               </div>
