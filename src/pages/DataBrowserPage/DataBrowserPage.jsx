@@ -98,6 +98,8 @@ export default function MedicalDataBrowser() {
   const [selectedItem, setSelectedItem] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
+
+  // SNUH 뱃지/그룹 펼침 상태(OMOP 모드 + SNUH 정렬 모드 둘 다 사용)
   const [expandedSnuhGroups, setExpandedSnuhGroups] = useState(new Set());
 
   const [summary, setSummary] = useState([]); // API 결과 원본
@@ -337,7 +339,6 @@ export default function MedicalDataBrowser() {
     }
   }
 
-  // 최상단 훅 근처에 추가
   const lastConceptsFetchKeyRef = React.useRef(null);
 
   // 1) 마운트 시 초기 표시 상태만
@@ -359,7 +360,6 @@ export default function MedicalDataBrowser() {
       tab: activeTab,
       page: Math.max(0, currentPage - 1),
       cohorts: cohortIds,
-      // 검색은 버튼(핸들러)에서 직접 호출하므로 키에서 제외
     });
 
     if (lastConceptsFetchKeyRef.current === fetchKey) return;
@@ -380,27 +380,109 @@ export default function MedicalDataBrowser() {
   useEffect(() => {
     setSelectedItem(null);
     setExpandedItems(new Set());
+    setExpandedSnuhGroups(new Set());
   }, [activeTab]);
+
+  const toggleSnuhGroup = (key) => {
+    setExpandedSnuhGroups((prev) => {
+      const n = new Set(prev);
+      n.has(key) ? n.delete(key) : n.add(key);
+      return n;
+    });
+  };
 
   // 검색 버튼
   const handleSearch = () => {
     setHasSearched(true);
     setExpandedItems(new Set());
+    setExpandedSnuhGroups(new Set());
     setCurrentPage(1);
     refreshSummary(searchQuery);
     refreshConcepts();
   };
 
-  const toggleSnuhGroup = (itemId) => {
-    setExpandedSnuhGroups((prev) => {
-      const n = new Set(prev);
-      n.has(itemId) ? n.delete(itemId) : n.add(itemId);
-      return n;
-    });
-  };
-
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') handleSearch();
+  };
+
+  // -------- SNUH 배지 렌더링 (OMOP 정렬 모드용) --------
+  // variant: 'split' | 'list' (스타일만 조금 다르게)
+  const renderSnuhBadgesDefault = (item, variant = 'split') => {
+    const allSnuhIds =
+      Array.isArray(item.allSnuhIds) && item.allSnuhIds.length
+        ? item.allSnuhIds
+        : item.snuhId
+          ? [item.snuhId]
+          : [];
+
+    if (!allSnuhIds.length) {
+      return (
+        <Badge
+          variant="secondary"
+          className={variant === 'split' ? 'text-xs' : 'text-sm'}
+        >
+          -
+        </Badge>
+      );
+    }
+
+    const expandKey = `${activeTab}-${item.id}`;
+    const isExpanded = expandedSnuhGroups.has(expandKey);
+    const MAX_COLLAPSED = 5; // 접힘 상태에서 최대 몇 개까지 한 줄로 보여줄지
+
+    const badgeClass = variant === 'split' ? 'text-xs' : 'text-sm';
+    const buttonClass =
+      variant === 'split' ? 'h-6 px-2 text-[10px]' : 'h-7 px-3 text-xs';
+
+    if (!isExpanded) {
+      const visible = allSnuhIds.slice(0, MAX_COLLAPSED);
+      const hiddenCount = allSnuhIds.length - visible.length;
+
+      return (
+        <>
+          {visible.map((code) => (
+            <Badge key={code} variant="secondary" className={badgeClass}>
+              {code}
+            </Badge>
+          ))}
+          {hiddenCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={buttonClass}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleSnuhGroup(expandKey);
+              }}
+            >
+              +{hiddenCount} more
+            </Button>
+          )}
+        </>
+      );
+    }
+
+    // 펼친 상태: 여러 줄로 래핑, 높이 제한 + 스크롤
+    return (
+      <div className="mt-1 flex max-h-16 flex-wrap gap-1 overflow-y-auto rounded bg-muted/40 p-1">
+        {allSnuhIds.map((code) => (
+          <Badge key={code} variant="secondary" className={badgeClass}>
+            {code}
+          </Badge>
+        ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={buttonClass}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSnuhGroup(expandKey);
+          }}
+        >
+          Show less
+        </Button>
+      </div>
+    );
   };
 
   // 리스트 데이터 가공
@@ -677,6 +759,7 @@ export default function MedicalDataBrowser() {
                     onClick={() => {
                       setSortBy('default');
                       setCurrentPage(1);
+                      setExpandedSnuhGroups(new Set());
                     }}
                   >
                     OMOP CDM 기준
@@ -687,6 +770,7 @@ export default function MedicalDataBrowser() {
                     onClick={() => {
                       setSortBy('snuh');
                       setCurrentPage(1);
+                      setExpandedSnuhGroups(new Set());
                     }}
                   >
                     SNUH ID 기준
@@ -768,6 +852,13 @@ export default function MedicalDataBrowser() {
                               );
                             }
 
+                            const snuhExpandKey = `${activeTab}-${item.id}`;
+                            const hasRelatedSnuhIds =
+                              Array.isArray(item.allSnuhIds) &&
+                              item.allSnuhIds.length > 1;
+                            const isSnuhExpanded =
+                              expandedSnuhGroups.has(snuhExpandKey);
+
                             return (
                               <div key={item.id}>
                                 <div
@@ -789,7 +880,7 @@ export default function MedicalDataBrowser() {
                                             {startIndex + index + 1}.{' '}
                                             {item.name}
                                           </h4>
-                                          <div className="flex items-center gap-2">
+                                          <div className="flex flex-wrap items-center gap-2">
                                             <Badge
                                               variant="outline"
                                               className="text-xs"
@@ -797,122 +888,45 @@ export default function MedicalDataBrowser() {
                                               {item.code}
                                             </Badge>
 
-                                            {(() => {
-                                              const allSnuhIds =
-                                                Array.isArray(
-                                                  item.allSnuhIds,
-                                                ) && item.allSnuhIds.length
-                                                  ? item.allSnuhIds
-                                                  : item.snuhId
-                                                    ? [item.snuhId]
-                                                    : [];
-
-                                              const snuhExpandKey = `${activeTab}-${item.id}`;
-                                              const isSnuhExpanded =
-                                                expandedSnuhGroups.has(
-                                                  snuhExpandKey,
-                                                );
-                                              const hasRelatedSnuhIds =
-                                                Array.isArray(
-                                                  item.allSnuhIds,
-                                                ) && item.allSnuhIds.length > 1;
-
-                                              // OMOP 기준 정렬일 때: 첫 SNUH + "+N more" / 펼치면 전체
-                                              if (sortBy === 'default') {
-                                                if (allSnuhIds.length === 0) {
-                                                  return (
-                                                    <Badge
-                                                      variant="secondary"
-                                                      className="text-xs"
-                                                    >
-                                                      -
-                                                    </Badge>
-                                                  );
-                                                }
-
-                                                return (
-                                                  <>
-                                                    <Badge
-                                                      variant="secondary"
-                                                      className="text-xs"
-                                                    >
-                                                      {allSnuhIds[0]}
-                                                    </Badge>
-
-                                                    {allSnuhIds.length > 1 &&
-                                                      !isSnuhExpanded && (
-                                                        <Button
-                                                          variant="ghost"
-                                                          size="sm"
-                                                          className="h-6 px-2 text-xs"
-                                                          onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            toggleSnuhGroup(
-                                                              snuhExpandKey,
-                                                            );
-                                                          }}
-                                                        >
-                                                          +
-                                                          {allSnuhIds.length -
-                                                            1}{' '}
-                                                          more
-                                                        </Button>
-                                                      )}
-
-                                                    {allSnuhIds.length > 1 &&
-                                                      isSnuhExpanded &&
-                                                      allSnuhIds
-                                                        .slice(1)
-                                                        .map((code) => (
-                                                          <Badge
-                                                            key={code}
-                                                            variant="secondary"
-                                                            className="text-xs"
-                                                          >
-                                                            {code}
-                                                          </Badge>
-                                                        ))}
-                                                  </>
-                                                );
-                                              }
-
-                                              // SNUH 기준 정렬일 때: 기존 related 버튼 유지
-                                              return (
-                                                <>
-                                                  <Badge
-                                                    variant="secondary"
-                                                    className="text-xs"
+                                            {sortBy === 'default' ? (
+                                              renderSnuhBadgesDefault(
+                                                item,
+                                                'split',
+                                              )
+                                            ) : (
+                                              <>
+                                                <Badge
+                                                  variant="secondary"
+                                                  className="text-xs"
+                                                >
+                                                  {item.snuhId}
+                                                </Badge>
+                                                {hasRelatedSnuhIds && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      toggleSnuhGroup(
+                                                        snuhExpandKey,
+                                                      );
+                                                    }}
+                                                    className="h-6 px-2"
                                                   >
-                                                    {item.snuhId}
-                                                  </Badge>
-                                                  {sortBy === 'snuh' &&
-                                                    hasRelatedSnuhIds && (
-                                                      <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          toggleSnuhGroup(
-                                                            snuhExpandKey,
-                                                          );
-                                                        }}
-                                                        className="h-6 px-2"
-                                                      >
-                                                        {isSnuhExpanded ? (
-                                                          <ChevronDown className="h-3 w-3" />
-                                                        ) : (
-                                                          <ChevronRight className="h-3 w-3" />
-                                                        )}
-                                                        <span className="ml-1 text-xs">
-                                                          {(allSnuhIds.length ||
-                                                            1) - 1}{' '}
-                                                          related
-                                                        </span>
-                                                      </Button>
+                                                    {isSnuhExpanded ? (
+                                                      <ChevronDown className="h-3 w-3" />
+                                                    ) : (
+                                                      <ChevronRight className="h-3 w-3" />
                                                     )}
-                                                </>
-                                              );
-                                            })()}
+                                                    <span className="ml-1 text-xs">
+                                                      {(item.allSnuhIds
+                                                        ?.length || 1) - 1}{' '}
+                                                      related
+                                                    </span>
+                                                  </Button>
+                                                )}
+                                              </>
+                                            )}
                                           </div>
                                         </div>
                                         <div className="text-right">
@@ -1112,6 +1126,7 @@ export default function MedicalDataBrowser() {
                       }
 
                       if (sortBy === 'default' && item.isGrouped) {
+                        // grouped 케이스에서 SNUH도 접힘/펼침 로직 적용
                         return (
                           <div
                             className="overflow-hidden rounded-xl border border-border bg-card"
@@ -1138,15 +1153,7 @@ export default function MedicalDataBrowser() {
                                         >
                                           {item.code}
                                         </Badge>
-                                        {item.allSnuhIds.map((snuhId) => (
-                                          <Badge
-                                            key={snuhId}
-                                            variant="secondary"
-                                            className="text-sm"
-                                          >
-                                            {snuhId}
-                                          </Badge>
-                                        ))}
+                                        {renderSnuhBadgesDefault(item, 'list')}
                                       </div>
                                     </div>
                                     <div className="text-right">
@@ -1241,6 +1248,13 @@ export default function MedicalDataBrowser() {
                         );
                       }
 
+                      const snuhExpandKey = `${activeTab}-${item.id}`;
+                      const hasRelatedSnuhIds =
+                        Array.isArray(item.allSnuhIds) &&
+                        item.allSnuhIds.length > 1;
+                      const isSnuhExpanded =
+                        expandedSnuhGroups.has(snuhExpandKey);
+
                       return (
                         <div
                           key={item.id}
@@ -1260,7 +1274,7 @@ export default function MedicalDataBrowser() {
                                     <h4 className="mb-2 text-xl font-bold text-foreground">
                                       {item.name}
                                     </h4>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                       <Badge
                                         variant="outline"
                                         className="text-sm"
@@ -1268,112 +1282,39 @@ export default function MedicalDataBrowser() {
                                         {item.code}
                                       </Badge>
 
-                                      {(() => {
-                                        const allSnuhIds =
-                                          Array.isArray(item.allSnuhIds) &&
-                                          item.allSnuhIds.length
-                                            ? item.allSnuhIds
-                                            : item.snuhId
-                                              ? [item.snuhId]
-                                              : [];
-
-                                        const snuhExpandKey = `${activeTab}-${item.id}`;
-                                        const isSnuhExpanded =
-                                          expandedSnuhGroups.has(snuhExpandKey);
-                                        const hasRelatedSnuhIds =
-                                          Array.isArray(item.allSnuhIds) &&
-                                          item.allSnuhIds.length > 1;
-
-                                        if (sortBy === 'default') {
-                                          if (allSnuhIds.length === 0) {
-                                            return (
-                                              <Badge
-                                                variant="secondary"
-                                                className="text-sm"
-                                              >
-                                                -
-                                              </Badge>
-                                            );
-                                          }
-
-                                          return (
-                                            <>
-                                              <Badge
-                                                variant="secondary"
-                                                className="text-sm"
-                                              >
-                                                {allSnuhIds[0]}
-                                              </Badge>
-
-                                              {allSnuhIds.length > 1 &&
-                                                !isSnuhExpanded && (
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-7 px-3 text-xs"
-                                                    onClick={() =>
-                                                      toggleSnuhGroup(
-                                                        snuhExpandKey,
-                                                      )
-                                                    }
-                                                  >
-                                                    +{allSnuhIds.length - 1}{' '}
-                                                    more
-                                                  </Button>
-                                                )}
-
-                                              {allSnuhIds.length > 1 &&
-                                                isSnuhExpanded &&
-                                                allSnuhIds
-                                                  .slice(1)
-                                                  .map((code) => (
-                                                    <Badge
-                                                      key={code}
-                                                      variant="secondary"
-                                                      className="text-sm"
-                                                    >
-                                                      {code}
-                                                    </Badge>
-                                                  ))}
-                                            </>
-                                          );
-                                        }
-
-                                        return (
-                                          <>
-                                            <Badge
-                                              variant="secondary"
-                                              className="text-sm"
+                                      {sortBy === 'default' ? (
+                                        renderSnuhBadgesDefault(item, 'list')
+                                      ) : (
+                                        <>
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-sm"
+                                          >
+                                            {item.snuhId}
+                                          </Badge>
+                                          {hasRelatedSnuhIds && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                toggleSnuhGroup(snuhExpandKey)
+                                              }
+                                              className="h-7 px-3"
                                             >
-                                              {item.snuhId}
-                                            </Badge>
-                                            {sortBy === 'snuh' &&
-                                              hasRelatedSnuhIds && (
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  onClick={() =>
-                                                    toggleSnuhGroup(
-                                                      snuhExpandKey,
-                                                    )
-                                                  }
-                                                  className="h-7 px-3"
-                                                >
-                                                  {isSnuhExpanded ? (
-                                                    <ChevronDown className="h-4 w-4" />
-                                                  ) : (
-                                                    <ChevronRight className="h-4 w-4" />
-                                                  )}
-                                                  <span className="ml-1 text-sm">
-                                                    {(allSnuhIds.length || 1) -
-                                                      1}{' '}
-                                                    related
-                                                  </span>
-                                                </Button>
+                                              {isSnuhExpanded ? (
+                                                <ChevronDown className="h-4 w-4" />
+                                              ) : (
+                                                <ChevronRight className="h-4 w-4" />
                                               )}
-                                          </>
-                                        );
-                                      })()}
+                                              <span className="ml-1 text-sm">
+                                                {(item.allSnuhIds?.length ||
+                                                  1) - 1}{' '}
+                                                related
+                                              </span>
+                                            </Button>
+                                          )}
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="text-right">
