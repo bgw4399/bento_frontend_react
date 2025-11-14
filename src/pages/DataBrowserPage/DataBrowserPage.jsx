@@ -960,31 +960,35 @@ export default function MedicalDataBrowser() {
                               : `Showing ${currentPage === 0 ? 0 : startIndex + 1}-${Math.min(endIndex, conceptsTotal || 0)} of ${conceptsTotal || 0} items`}
                           </div>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setCurrentPage((p) => Math.max(1, p - 1))
-                            }
-                            disabled={currentPage === 1 || conceptsLoading}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </Button>
-                          <div className="text-sm font-medium">
-                            Page {currentPage} of {totalPages}
+                          <div className="flex items-center gap-6">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setCurrentPage((p) => Math.max(1, p - 1))
+                              }
+                              disabled={currentPage === 1 || conceptsLoading}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <div className="text-sm font-medium">
+                              Page {currentPage} of {totalPages}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setCurrentPage((p) =>
+                                  Math.min(totalPages, p + 1),
+                                )
+                              }
+                              disabled={
+                                currentPage === totalPages || conceptsLoading
+                              }
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setCurrentPage((p) => Math.min(totalPages, p + 1))
-                            }
-                            disabled={
-                              currentPage === totalPages || conceptsLoading
-                            }
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
                         </div>
                       </div>
                     </div>
@@ -1410,27 +1414,31 @@ export default function MedicalDataBrowser() {
                         : `Showing ${currentPage === 0 ? 0 : startIndex + 1}-${Math.min(endIndex, conceptsTotal || 0)} of ${conceptsTotal || 0} items`}
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1 || conceptsLoading}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <div className="text-sm font-medium">
-                      Page {currentPage} of {totalPages}
+                    <div className="flex items-center gap-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={currentPage === 1 || conceptsLoading}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="text-sm font-medium">
+                        Page {currentPage} of {totalPages}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={currentPage === totalPages || conceptsLoading}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={currentPage === totalPages || conceptsLoading}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
               )}
