@@ -9,7 +9,7 @@ export default function IntegratedLoginPage() {
           <h1 className="text-balance text-3xl font-bold text-foreground">
             로그인
           </h1>
-          <p className="mt-2 text-muted-foreground">계정 정보를 입력해주세요</p>
+          {/*<p className="mt-2 text-muted-foreground">계정 정보를 입력해주세요</p>*/}
         </div>
         <LoginForm />
       </div>
