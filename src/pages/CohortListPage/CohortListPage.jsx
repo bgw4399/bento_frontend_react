@@ -11,7 +11,7 @@ export default function CohortListPage() {
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);      // UI는 1-based
+  const [currentPage, setCurrentPage] = useState(1); // UI는 1-based
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [cohortList, setCohortList] = useState([]);
@@ -22,7 +22,7 @@ export default function CohortListPage() {
   // 총 페이지
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(totalItems / pageSize)),
-    [totalItems, pageSize]
+    [totalItems, pageSize],
   );
 
   // 서버에서 목록/검색 불러오기
@@ -50,7 +50,7 @@ export default function CohortListPage() {
       const items =
         data?.cohorts ??
         data?.items ??
-        (Array.isArray(data) ? data : data?.data ?? []);
+        (Array.isArray(data) ? data : (data?.data ?? []));
 
       // 총 개수 추정 (없으면 현재 페이지 길이로)
       const total =
@@ -63,7 +63,13 @@ export default function CohortListPage() {
       const effectiveLimit = Number(data?.limit) || limit || 10;
 
       setCohortList(Array.isArray(items) ? items : []);
-      setTotalItems(Number.isFinite(total) && total > 0 ? total : (Array.isArray(items) ? items.length : 0));
+      setTotalItems(
+        Number.isFinite(total) && total > 0
+          ? total
+          : Array.isArray(items)
+            ? items.length
+            : 0,
+      );
       setPageSize(effectiveLimit);
     } catch (e) {
       console.error(e);
@@ -120,7 +126,11 @@ export default function CohortListPage() {
       }
     }
 
-    await fetchCohorts({ page: currentPage, limit: pageSize, query: searchQuery });
+    await fetchCohorts({
+      page: currentPage,
+      limit: pageSize,
+      query: searchQuery,
+    });
     setSelectedItems({});
 
     if (deleteError) {
@@ -161,7 +171,7 @@ export default function CohortListPage() {
 
   return (
     <>
-      <title>Cohort List - Bento</title>
+      <title>Cohort List - Canvas</title>
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="mb-8">
@@ -232,85 +242,89 @@ export default function CohortListPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead>
-                <tr className="bg-gray-50 text-left">
-                  <th className="w-[5%] px-4 py-3">
-                    <span className="sr-only">Select</span>
-                  </th>
-                  <th className="w-[5%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                    No.
-                  </th>
-                  <th className="w-[25%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Name
-                  </th>
-                  <th className="w-[35%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Description
-                  </th>
-                  <th className="w-[10%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Author
-                  </th>
-                  <th className="w-[10%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Created
-                  </th>
-                  <th className="w-[10%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Updated
-                  </th>
-                </tr>
+                  <tr className="bg-gray-50 text-left">
+                    <th className="w-[5%] px-4 py-3">
+                      <span className="sr-only">Select</span>
+                    </th>
+                    <th className="w-[5%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                      No.
+                    </th>
+                    <th className="w-[25%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Name
+                    </th>
+                    <th className="w-[35%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Description
+                    </th>
+                    <th className="w-[10%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Author
+                    </th>
+                    <th className="w-[10%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Created
+                    </th>
+                    <th className="w-[10%] px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Updated
+                    </th>
+                  </tr>
                 </thead>
 
                 <tbody className="divide-y divide-gray-200 bg-white">
-                {cohortList.map((item, index) => {
-                  const id = item.id ?? item.cohort_id ?? item._id;
-                  const isSelected = !!selectedItems[id];
-                  // 서버 페이징이므로 역순 번호는 전체 기준으로 계산
-                  const rowNumber =
-                    totalItems - ((safeCurrentPage - 1) * pageSize + index);
+                  {cohortList.map((item, index) => {
+                    const id = item.id ?? item.cohort_id ?? item._id;
+                    const isSelected = !!selectedItems[id];
+                    // 서버 페이징이므로 역순 번호는 전체 기준으로 계산
+                    const rowNumber =
+                      totalItems - ((safeCurrentPage - 1) * pageSize + index);
 
-                  return (
-                    <tr
-                      key={id}
-                      className={`group cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                      onClick={() => handleCheckboxChange(id)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center">
-                          <div
-                            className={`flex h-4 w-4 items-center justify-center border-2 transition-colors ${isSelected ? 'border-blue-600' : 'border-gray-300'}`}
-                          >
-                            {isSelected && (
-                              <div className="h-2 w-2 bg-blue-600"></div>
-                            )}
+                    return (
+                      <tr
+                        key={id}
+                        className={`group cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                        onClick={() => handleCheckboxChange(id)}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <div
+                              className={`flex h-4 w-4 items-center justify-center border-2 transition-colors ${isSelected ? 'border-blue-600' : 'border-gray-300'}`}
+                            >
+                              {isSelected && (
+                                <div className="h-2 w-2 bg-blue-600"></div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-500">
-                        {rowNumber > 0 ? rowNumber : index + 1}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          to={`/cohort/${id}`}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {item.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        <div className="line-clamp-2 whitespace-pre-line">
-                          {item.description}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {item.author ?? 'anonymous'}
-                      </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-500">
-                        {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-500">
-                        {item.updated_at ? new Date(item.updated_at).toLocaleString() : '-'}
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-500">
+                          {rowNumber > 0 ? rowNumber : index + 1}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link
+                            to={`/cohort/${id}`}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {item.name}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <div className="line-clamp-2 whitespace-pre-line">
+                            {item.description}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {item.author ?? 'anonymous'}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-500">
+                          {item.created_at
+                            ? new Date(item.created_at).toLocaleString()
+                            : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-500">
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleString()
+                            : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -327,19 +341,23 @@ export default function CohortListPage() {
                   ‹
                 </button>
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${safeCurrentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-blue-100'}`}
-                  >
-                    {page}
-                  </button>
-                ))}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${safeCurrentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-blue-100'}`}
+                    >
+                      {page}
+                    </button>
+                  ),
+                )}
 
                 <button
                   disabled={safeCurrentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
                   aria-label="Next page"
                   className={`rounded-md p-2 text-sm font-medium transition-colors ${safeCurrentPage === totalPages ? 'text-gray-400' : 'text-blue-600 hover:text-blue-800'}`}
                 >

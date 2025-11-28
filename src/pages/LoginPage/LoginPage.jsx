@@ -20,12 +20,12 @@ export default function LoginPage() {
 
   return (
     <>
-      <title>Login - Bento</title>
+      <title>Login - Canvas</title>
       <div className="flex items-center justify-center">
         <div className="flex min-h-[calc(100vh-60px)] w-[50vw] items-center justify-center bg-gradient-to-b from-white to-blue-50">
           <div className="w-[45%] text-center">
             <h1 className="text-3xl font-bold text-gray-800">
-              Welcome to Bento
+              Welcome to Canvas
             </h1>
             <p className="mt-2 text-gray-500">
               Your gateway to intelligent patient data insights

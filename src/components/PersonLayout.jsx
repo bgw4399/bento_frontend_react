@@ -42,7 +42,7 @@ export default function PersonLayout() {
 
   return (
     <div>
-      <title>Patient CDM - Bento</title>
+      <title>Patient CDM - Canvas</title>
       <div className="w-full bg-gray-50">
         <div className="bg-white shadow-sm">
           <div className="container mx-auto w-[85%] py-4">

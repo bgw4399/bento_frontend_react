@@ -32,8 +32,13 @@ const transformStatsData = (data) => {
 };
 
 const tableComponents = {
-  condition: Condition, drug: Drug, measurement: Measurement, observation: Observation,
-  procedure_occurrence: ProcedureOccurrence, specimen: Specimen, bio_signal: BioSignal
+  condition: Condition,
+  drug: Drug,
+  measurement: Measurement,
+  observation: Observation,
+  procedure_occurrence: ProcedureOccurrence,
+  specimen: Specimen,
+  bio_signal: BioSignal,
 };
 
 const MARGIN = { top: 20, right: 20, bottom: 30, left: 130 };
@@ -41,12 +46,12 @@ const BAR_HEIGHT = 20;
 const ROW_GAP = 25;
 const DEATH_BAR_WIDTH = 5;
 const visitMapping = {
-  9203: [0, "Emergency Room Visit", "#FF6B6B"],   // 응급
-  9201: [1, "Inpatient Visit", "#4ECDC4"],        // 입원
-  9202: [2, "Outpatient Visit", "#45B7D1"],       // 외래
-  581477: [3, "Home Visit", "#FFD166"],           // 가정
-  581385: [4, "Observation Room", "#BDC3C7"],
-  38004207: [5, "Ambulatory Clinic / Center", "#9B5DE5"],
+  9203: [0, 'Emergency Room Visit', '#FF6B6B'], // 응급
+  9201: [1, 'Inpatient Visit', '#4ECDC4'], // 입원
+  9202: [2, 'Outpatient Visit', '#45B7D1'], // 외래
+  581477: [3, 'Home Visit', '#FFD166'], // 가정
+  581385: [4, 'Observation Room', '#BDC3C7'],
+  38004207: [5, 'Ambulatory Clinic / Center', '#9B5DE5'],
 };
 
 export default function PersonDetailPage() {
@@ -54,7 +59,7 @@ export default function PersonDetailPage() {
   const timelineContainerRef = useRef(null);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState("Loading data...");
+  const [message, setMessage] = useState('Loading data...');
   const [personData, setPersonData] = useState(null);
   const [personVisits, setPersonVisits] = useState([]);
   const [personStatistics, setPersonStatistics] = useState(null);
@@ -79,17 +84,17 @@ export default function PersonDetailPage() {
     'topTenDrugs',
     'topTenConditions',
     'topTenProcedures',
-    'topTenMeasurements'
+    'topTenMeasurements',
   ]);
 
   const handleCloseChart = (chartId) => {
-    setVisibleCharts(prev => prev.filter(id => id !== chartId));
+    setVisibleCharts((prev) => prev.filter((id) => id !== chartId));
   };
   const handleCheckboxChange = (itemId) => {
-    setSelectItems(prevItems =>
-      prevItems.map(item =>
-        item.id === itemId ? { ...item, checked: !item.checked } : item
-      )
+    setSelectItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === itemId ? { ...item, checked: !item.checked } : item,
+      ),
     );
   };
 
@@ -99,7 +104,7 @@ export default function PersonDetailPage() {
       if (!personId) return;
 
       setIsLoading(true);
-      setMessage("Loading data...");
+      setMessage('Loading data...');
       setPersonData(null);
       setPersonVisits([]);
       setPersonStatistics(null);
@@ -112,7 +117,7 @@ export default function PersonDetailPage() {
         const [personRes, visitsRes, statsRes] = await Promise.all([
           fetch(`${API_URI}/api/person/${personId}`),
           fetch(`${API_URI}/api/person/${personId}/visit`),
-          fetch(`${API_URI}/api/person/${personId}/statistics`)
+          fetch(`${API_URI}/api/person/${personId}/statistics`),
         ]);
 
         // 3. 각 응답의 성공 여부 확인
@@ -134,9 +139,8 @@ export default function PersonDetailPage() {
         setPersonData(personJson);
         setPersonVisits(visitsJson);
         setPersonStatistics(statsJson);
-
       } catch (error) {
-        console.error("데이터 로드 실패:", error);
+        console.error('데이터 로드 실패:', error);
         setMessage(`Failed to load data: ${error.message}`);
         // 오류 발생 시 상태를 초기화합니다.
         setPersonData(null);
@@ -157,61 +161,81 @@ export default function PersonDetailPage() {
         cdm_info: {
           careSite: personData.info.care_site_id, // 예시, 실제 키값 확인 필요
           location: personData.info.location_id, // 예시, 실제 키값 확인 필요
-          visitOccurrence: personData.visit_occurrence ? personData.visit_occurrence[0] : null // visit_occurrence가 personData에 있는지 확인 필요
+          visitOccurrence: personData.visit_occurrence
+            ? personData.visit_occurrence[0]
+            : null, // visit_occurrence가 personData에 있는지 확인 필요
         },
         // [수정] personData에 이 키들이 있는지 확인이 필요합니다.
         // 만약 /api/person/:personId 응답에 이 데이터들이 없다면,
         // 이 로직은 `fetchDataById`가 호출될 때만 작동하도록 변경해야 합니다.
         condition: {
           conditionEra: personData.condition_era,
-          conditionOccurrence: personData.condition_occurrence
+          conditionOccurrence: personData.condition_occurrence,
         },
         drug: { drugExposure: personData.drug_exposure },
         measurement: { measurement: personData.measurement },
         observation: { observation: personData.observation },
-        procedure_occurrence: { procedureOccurrence: personData.procedure_occurrence },
+        procedure_occurrence: {
+          procedureOccurrence: personData.procedure_occurrence,
+        },
         specimen: { specimen: personData.specimen },
-        bio_signal: { bioSignal: personData.bio_signal }
+        bio_signal: { bioSignal: personData.bio_signal },
       };
       // 완성된 props 객체를 tableProps state에 저장합니다.
       setTableProps(newTableProps);
     }
   }, [personData]);
 
-  const fetchDataById = useCallback(async (id) => {
-    setMessage("Loading Table...");
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${API_URI}/api/visit/${id}`); // [수정 후]
+  const fetchDataById = useCallback(
+    async (id) => {
+      setMessage('Loading Table...');
+      setIsLoading(true);
+      try {
+        const res = await fetch(`${API_URI}/api/visit/${id}`); // [수정 후]
 
-      if (!res.ok) { // [추가] 404 등 오류 처리
-        throw new Error(`Failed to fetch visit data: ${res.statusText}`);
+        if (!res.ok) {
+          // [추가] 404 등 오류 처리
+          throw new Error(`Failed to fetch visit data: ${res.statusText}`);
+        }
+
+        const fullData = await res.json();
+        const newTableProps = {
+          cdm_info: {
+            careSite: fullData?.care_site,
+            location: fullData?.location,
+            visitOccurrence: fullData?.visitInfo,
+          },
+          condition: {
+            conditionEra: fullData?.conditionEras,
+            conditionOccurrence: fullData?.conditions,
+          },
+          drug: { drugExposure: fullData?.drugs },
+          // [추가] Svelte 코드 기준으로 누락된 데이터 매핑
+          measurement: { measurement: fullData?.measurements },
+          observation: { observation: fullData?.observations },
+          procedure_occurrence: { procedureOccurrence: fullData?.procedures },
+          specimen: { specimen: fullData?.specimens },
+          // bio_signal은 visit.service.ts에 없으므로, 필요시 백엔드 수정 필요
+          // bio_signal: { bioSignal: fullData?.bio_signal }
+        };
+        setTableProps(newTableProps);
+        setIsStatisticsView(true);
+      } catch (error) {
+        console.error('데이터 로드 실패:', error);
+      } finally {
+        setIsLoading(false);
       }
-
-      const fullData = await res.json();
-      const newTableProps = {
-        cdm_info: { careSite: fullData?.care_site, location: fullData?.location, visitOccurrence: fullData?.visitInfo },
-        condition: { conditionEra: fullData?.conditionEras, conditionOccurrence: fullData?.conditions },
-        drug: { drugExposure: fullData?.drugs },
-        // [추가] Svelte 코드 기준으로 누락된 데이터 매핑
-        measurement: { measurement: fullData?.measurements },
-        observation: { observation: fullData?.observations },
-        procedure_occurrence: { procedureOccurrence: fullData?.procedures },
-        specimen: { specimen: fullData?.specimens },
-        // bio_signal은 visit.service.ts에 없으므로, 필요시 백엔드 수정 필요
-        // bio_signal: { bioSignal: fullData?.bio_signal }
-      };
-      setTableProps(newTableProps);
-      setIsStatisticsView(true);
-    } catch (error) {
-      console.error("데이터 로드 실패:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [API_URI]); // API_URI 의존성 유지
+    },
+    [API_URI],
+  ); // API_URI 의존성 유지
 
   const drawTimeline = useCallback(() => {
-    if (!timelineContainerRef.current || !personVisits || personVisits.length === 0) return;
+    if (
+      !timelineContainerRef.current ||
+      !personVisits ||
+      personVisits.length === 0
+    )
+      return;
 
     const container = timelineContainerRef.current;
     const { width, height } = container.getBoundingClientRect();
@@ -221,47 +245,75 @@ export default function PersonDetailPage() {
 
     // --- Helper Functions ---
     function initializeSvg(_width, _height) {
-      let svg = d3.select(container).select("svg");
+      let svg = d3.select(container).select('svg');
       if (!svg.node()) {
-        svg = d3.select(container).append("svg")
-          .attr("width", _width).attr("height", _height)
-          .style("border", "1px solid #d1d5db").style("border-radius", "6px");
+        svg = d3
+          .select(container)
+          .append('svg')
+          .attr('width', _width)
+          .attr('height', _height)
+          .style('border', '1px solid #d1d5db')
+          .style('border-radius', '6px');
       }
-      svg.selectAll("*").remove();
+      svg.selectAll('*').remove();
       return svg;
     }
 
     function setupScales(_width) {
-      let minStart = new Date(Math.min(...personVisits.map(d => new Date(d.visit_start_date))));
-      let maxEnd = new Date(Math.max(...personVisits.map(d => new Date(d.visit_end_date))));
+      let minStart = new Date(
+        Math.min(...personVisits.map((d) => new Date(d.visit_start_date))),
+      );
+      let maxEnd = new Date(
+        Math.max(...personVisits.map((d) => new Date(d.visit_end_date))),
+      );
       minStart.setDate(minStart.getDate() - 360);
       maxEnd.setDate(maxEnd.getDate() + 360);
-      return d3.scaleTime().domain([minStart, maxEnd]).range([MARGIN.left, _width - MARGIN.right - 50]);
+      return d3
+        .scaleTime()
+        .domain([minStart, maxEnd])
+        .range([MARGIN.left, _width - MARGIN.right - 50]);
     }
 
     function setupClipPath(svg) {
-      svg.append("defs").append("clipPath").attr("id", "clip-timeline")
-        .append("rect").attr("x", MARGIN.left + 50).attr("y", 0)
-        .attr("width", innerWidth).attr("height", innerHeight);
+      svg
+        .append('defs')
+        .append('clipPath')
+        .attr('id', 'clip-timeline')
+        .append('rect')
+        .attr('x', MARGIN.left + 50)
+        .attr('y', 0)
+        .attr('width', innerWidth)
+        .attr('height', innerHeight);
     }
 
     function setupTooltip() {
-      let tooltip = d3.select(container).select(".tooltip");
+      let tooltip = d3.select(container).select('.tooltip');
       if (tooltip.empty()) {
-        tooltip = d3.select(container).append("div")
-          .attr("class", "tooltip")
-          .style("position", "absolute").style("background", "rgba(0,0,0,0.7)")
-          .style("color", "white").style("padding", "5px").style("border-radius", "5px")
-          .style("font-size", "12px").style("visibility", "hidden");
+        tooltip = d3
+          .select(container)
+          .append('div')
+          .attr('class', 'tooltip')
+          .style('position', 'absolute')
+          .style('background', 'rgba(0,0,0,0.7)')
+          .style('color', 'white')
+          .style('padding', '5px')
+          .style('border-radius', '5px')
+          .style('font-size', '12px')
+          .style('visibility', 'hidden');
       }
       return tooltip;
     }
 
     function groupOverlappingVisits(visits) {
       const groups = [];
-      const visitsByType = d3.group(visits, d => d.visit_concept_id);
+      const visitsByType = d3.group(visits, (d) => d.visit_concept_id);
       visitsByType.forEach((typeVisits) => {
-        const sorted = typeVisits.slice().sort((a, b) => new Date(a.visit_start_date) - new Date(b.visit_start_date));
+        const sorted = typeVisits
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(a.visit_start_date) - new Date(b.visit_start_date),
+          );
         const typeGroups = [];
         for (const visit of sorted) {
           const vStart = new Date(visit.visit_start_date);
@@ -287,38 +339,43 @@ export default function PersonDetailPage() {
 
     function drawYAxis(svg) {
       const entries = Object.entries(visitMapping);
-      const labelGroup = svg.append("g")
-        .attr("transform", `translate(${MARGIN.left + 50}, ${MARGIN.top})`);
+      const labelGroup = svg
+        .append('g')
+        .attr('transform', `translate(${MARGIN.left + 50}, ${MARGIN.top})`);
 
-      labelGroup.selectAll("text")
+      labelGroup
+        .selectAll('text')
         .data(entries)
         .enter()
-        .append("text")
-        .attr("x", 0)
-        .attr("y", ([id]) => visitMapping[id][0] * ROW_GAP + 10)
-        .attr("text-anchor", "end")
-        .attr("font-size", "11px")
-        .attr("alignment-baseline", "middle")
+        .append('text')
+        .attr('x', 0)
+        .attr('y', ([id]) => visitMapping[id][0] * ROW_GAP + 10)
+        .attr('text-anchor', 'end')
+        .attr('font-size', '11px')
+        .attr('alignment-baseline', 'middle')
         .text(([_, [, label]]) => label);
 
-      const guideLines = svg.append("g")
-        .attr("transform", `translate(0, ${MARGIN.top})`);
+      const guideLines = svg
+        .append('g')
+        .attr('transform', `translate(0, ${MARGIN.top})`);
 
-      guideLines.selectAll("line")
+      guideLines
+        .selectAll('line')
         .data(entries)
         .enter()
-        .append("line")
-        .attr("x1", MARGIN.left + 50)
-        .attr("x2", innerWidth + MARGIN.left)
-        .attr("y1", ([id]) => visitMapping[id][0] * ROW_GAP - 2.5)
-        .attr("y2", ([id]) => visitMapping[id][0] * ROW_GAP - 2.5)
-        .attr("stroke", "#e0e0e0")
-        .attr("stroke-width", 1);
+        .append('line')
+        .attr('x1', MARGIN.left + 50)
+        .attr('x2', innerWidth + MARGIN.left)
+        .attr('y1', ([id]) => visitMapping[id][0] * ROW_GAP - 2.5)
+        .attr('y2', ([id]) => visitMapping[id][0] * ROW_GAP - 2.5)
+        .attr('stroke', '#e0e0e0')
+        .attr('stroke-width', 1);
     }
     function drawXAxis(svg) {
       const axis = d3.axisBottom(xScale).ticks(10);
-      xAxisGroup = svg.append("g")
-        .attr("transform", `translate(50,${innerHeight})`)
+      xAxisGroup = svg
+        .append('g')
+        .attr('transform', `translate(50,${innerHeight})`)
         .call(axis);
     }
     function darkenColor(hex, amount = 0.1) {
@@ -330,8 +387,9 @@ export default function PersonDetailPage() {
       return hsl.formatHex();
     }
     function showTooltip(event, tooltip, text) {
-      tooltip.style("visibility", "visible")
-        .style("white-space", "pre")
+      tooltip
+        .style('visibility', 'visible')
+        .style('white-space', 'pre')
         .text(text);
     }
     function moveTooltip(event, tooltip) {
@@ -344,49 +402,72 @@ export default function PersonDetailPage() {
       let tooltipX = pageX + 10;
       let tooltipY = pageY - 30;
 
-      if (tooltipX + tooltipWidth > svgRect.width) tooltipX = pageX - tooltipWidth - 10;
-      if (tooltipY + tooltipHeight > svgRect.height) tooltipY = pageY - tooltipHeight - 10;
+      if (tooltipX + tooltipWidth > svgRect.width)
+        tooltipX = pageX - tooltipWidth - 10;
+      if (tooltipY + tooltipHeight > svgRect.height)
+        tooltipY = pageY - tooltipHeight - 10;
 
-      tooltip.style("top", `${tooltipY}px`).style("left", `${tooltipX}px`);
+      tooltip.style('top', `${tooltipY}px`).style('left', `${tooltipX}px`);
     }
 
     function drawBars(svg, tooltip) {
-      const barGroup = svg.append("g").attr("transform", `translate(0,${MARGIN.top})`).attr("clip-path", "url(#clip-timeline)");
+      const barGroup = svg
+        .append('g')
+        .attr('transform', `translate(0,${MARGIN.top})`)
+        .attr('clip-path', 'url(#clip-timeline)');
       const grouped = groupOverlappingVisits(personVisits);
 
       // [수정] personData.death가 있는지 확인
       if (personData && personData.death) {
-        barGroup.append("rect").attr("class", "death-bar")
-          .attr("x", xScale(new Date(personData.death.death_date)))
-          .attr("y", 0).attr("width", DEATH_BAR_WIDTH).attr("height", innerHeight - 20)
-          .attr("fill", "black").attr("opacity", 1)
-          .on("mouseover", (event) => showTooltip(event, tooltip, `death_concept : ${personData.death.cause_concept_id}\ndeath_date : ${personData.death.death_date}`))
-          .on("mousemove", (event) => moveTooltip(event, tooltip))
-          .on("mouseout", () => tooltip.style("visibility", "hidden"));
+        barGroup
+          .append('rect')
+          .attr('class', 'death-bar')
+          .attr('x', xScale(new Date(personData.death.death_date)))
+          .attr('y', 0)
+          .attr('width', DEATH_BAR_WIDTH)
+          .attr('height', innerHeight - 20)
+          .attr('fill', 'black')
+          .attr('opacity', 1)
+          .on('mouseover', (event) =>
+            showTooltip(
+              event,
+              tooltip,
+              `death_concept : ${personData.death.cause_concept_id}\ndeath_date : ${personData.death.death_date}`,
+            ),
+          )
+          .on('mousemove', (event) => moveTooltip(event, tooltip))
+          .on('mouseout', () => tooltip.style('visibility', 'hidden'));
       }
 
-      barGroup.selectAll("rect.visit-bar")
+      barGroup
+        .selectAll('rect.visit-bar')
         .data(grouped)
         .enter()
-        .append("rect")
-        .attr("class", "visit-bar")
-        .attr("x", d => xScale(new Date(d.start)))
-        .attr("y", d => visitMapping[d.items[0].visit_concept_id]?.[0] * ROW_GAP)
-        .attr("width", d => Math.max(xScale(new Date(d.end)) - xScale(new Date(d.start)), 5))
-        .attr("height", BAR_HEIGHT)
-        .attr("fill", d => {
-          const baseColor = visitMapping[d.items[0].visit_concept_id]?.[2] || "#ccc";
+        .append('rect')
+        .attr('class', 'visit-bar')
+        .attr('x', (d) => xScale(new Date(d.start)))
+        .attr(
+          'y',
+          (d) => visitMapping[d.items[0].visit_concept_id]?.[0] * ROW_GAP,
+        )
+        .attr('width', (d) =>
+          Math.max(xScale(new Date(d.end)) - xScale(new Date(d.start)), 5),
+        )
+        .attr('height', BAR_HEIGHT)
+        .attr('fill', (d) => {
+          const baseColor =
+            visitMapping[d.items[0].visit_concept_id]?.[2] || '#ccc';
           const count = d.items.length;
           if (count === 1) return baseColor;
           if (count <= 2) return darkenColor(baseColor, 0.2);
           if (count <= 4) return darkenColor(baseColor, 0.3);
           return darkenColor(baseColor, 0.4);
         })
-        .on("mouseover", function(event, d) {
+        .on('mouseover', function (event, d) {
           d3.select(this)
-            .style("filter", "brightness(1.2)")
-            .attr("stroke", "black")
-            .attr("stroke-width", 1);
+            .style('filter', 'brightness(1.2)')
+            .attr('stroke', 'black')
+            .attr('stroke-width', 1);
 
           const visit = d.items[0];
           const len = d.items.length;
@@ -399,17 +480,15 @@ export default function PersonDetailPage() {
           }
           showTooltip(event, tooltip, text);
         })
-        .on("mousemove", function(event) {
+        .on('mousemove', function (event) {
           moveTooltip(event, tooltip);
         })
-        .on("mouseout", function() {
-          d3.select(this)
-            .style("filter", "none")
-            .attr("stroke", "none");
+        .on('mouseout', function () {
+          d3.select(this).style('filter', 'none').attr('stroke', 'none');
 
-          tooltip.style("visibility", "hidden");
+          tooltip.style('visibility', 'hidden');
         })
-        .on("click", (event, d) => {
+        .on('click', (event, d) => {
           if (d.items.length !== 1) {
             setSelectedGroup(d.items);
           } else {
@@ -420,14 +499,29 @@ export default function PersonDetailPage() {
     }
 
     function setupZoom(svg, _width, _height) {
-      const zoom = d3.zoom().scaleExtent([0.5, 20]).translateExtent([[xScale.range()[0], 0], [xScale.range()[1], _height]])
-        .on("zoom", (event) => {
+      const zoom = d3
+        .zoom()
+        .scaleExtent([0.5, 20])
+        .translateExtent([
+          [xScale.range()[0], 0],
+          [xScale.range()[1], _height],
+        ])
+        .on('zoom', (event) => {
           const newXScale = event.transform.rescaleX(xScale);
           xAxisGroup.call(d3.axisBottom(newXScale));
-          d3.selectAll(".visit-bar").attr("x", d => newXScale(new Date(d.start))).attr("width", d => Math.max(newXScale(new Date(d.end)) - newXScale(new Date(d.start)), 5));
+          d3.selectAll('.visit-bar')
+            .attr('x', (d) => newXScale(new Date(d.start)))
+            .attr('width', (d) =>
+              Math.max(
+                newXScale(new Date(d.end)) - newXScale(new Date(d.start)),
+                5,
+              ),
+            );
           // [수정] personData.death가 있는지 확인
           if (personData && personData.death) {
-            d3.selectAll(".death-bar").attr("x", newXScale(new Date(personData.death.death_date))).attr("width", DEATH_BAR_WIDTH);
+            d3.selectAll('.death-bar')
+              .attr('x', newXScale(new Date(personData.death.death_date)))
+              .attr('width', DEATH_BAR_WIDTH);
           }
         });
       svg.call(zoom);
@@ -439,13 +533,13 @@ export default function PersonDetailPage() {
     setupClipPath(svg);
     const tooltip = setupTooltip();
     drawYAxis(svg);
-    xAxisGroup = svg.append("g").attr("transform", `translate(50,${innerHeight})`).call(d3.axisBottom(xScale).ticks(10));
+    xAxisGroup = svg
+      .append('g')
+      .attr('transform', `translate(50,${innerHeight})`)
+      .call(d3.axisBottom(xScale).ticks(10));
     drawBars(svg, tooltip);
     setupZoom(svg, width, height);
-
   }, [personVisits, personData, fetchDataById]); // [수정] personData 의존성 추가
-
-
 
   useEffect(() => {
     if (!isLoading && personVisits.length > 0) {
@@ -453,14 +547,13 @@ export default function PersonDetailPage() {
     }
     const handleResize = () => {
       if (timelineContainerRef.current) {
-        d3.select(timelineContainerRef.current).select("svg").remove();
+        d3.select(timelineContainerRef.current).select('svg').remove();
         drawTimeline();
       }
     };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [isLoading, personVisits, drawTimeline]);
-
 
   if (isLoading) {
     return <LoadingComponent message={message} />;
@@ -468,83 +561,128 @@ export default function PersonDetailPage() {
 
   if (!personData) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center" style={{ minHeight: 'calc(100vh - 200px)' }}>
-        <title>Not Found - Bento</title>
-        <h1 className="text-2xl font-bold text-red-600 mb-4">Patient Not Found</h1>
+      <div
+        className="flex flex-col items-center justify-center p-8 text-center"
+        style={{ minHeight: 'calc(100vh - 200px)' }}
+      >
+        <title>Not Found - Canvas</title>
+        <h1 className="mb-4 text-2xl font-bold text-red-600">
+          Patient Not Found
+        </h1>
         <p className="text-gray-600">
-          The patient with ID <strong className="font-semibold">{personId}</strong> could not be found.
+          The patient with ID{' '}
+          <strong className="font-semibold">{personId}</strong> could not be
+          found.
         </p>
-        <Link to="/person" className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+        <Link
+          to="/person"
+          className="mt-6 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+        >
           Back to Search
         </Link>
       </div>
     );
   }
 
-  const genderCodes = { 8507: "Male", 8532: "Female", 0: "Unknown" };
+  const genderCodes = { 8507: 'Male', 8532: 'Female', 0: 'Unknown' };
 
   return (
     <div className="p-4">
-      <header className="py-4 bg-white border-b w-full">
-        <div className="flex justify-between items-center py-2">
-          <div className="flex items-center px-[10px] py-[5px] whitespace-nowrap">
+      <header className="w-full border-b bg-white py-4">
+        <div className="flex items-center justify-between py-2">
+          <div className="flex items-center whitespace-nowrap px-[10px] py-[5px]">
             <Link to="/cohort" aria-label="go back">
-              <button className="flex items-center pr-[10px]" aria-label="go back">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-7 h-7 text-gray-600">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              <button
+                className="flex items-center pr-[10px]"
+                aria-label="go back"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                  className="h-7 w-7 text-gray-600"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
               </button>
             </Link>
             {/* [수정] personData.info에서 데이터 참조 */}
             <span className="text-sm text-gray-400">ID</span>
-            <span className="text-sm font-medium text-gray-900 ml-1">{personData.info.person_id}</span>
-            <span className="text-gray-200 mx-3">|</span>
+            <span className="ml-1 text-sm font-medium text-gray-900">
+              {personData.info.person_id}
+            </span>
+            <span className="mx-3 text-gray-200">|</span>
             <span className="text-sm text-gray-400">Gender</span>
-            <span className="text-sm font-medium text-gray-900 ml-1">{genderCodes[personData.info.gender_concept_id]}</span>
-            <span className="text-gray-200 mx-3">|</span>
+            <span className="ml-1 text-sm font-medium text-gray-900">
+              {genderCodes[personData.info.gender_concept_id]}
+            </span>
+            <span className="mx-3 text-gray-200">|</span>
             <span className="text-sm text-gray-400">Birth(Year)</span>
-            <span className="text-sm font-medium text-gray-900 ml-1">{personData.info.year_of_birth}</span>
+            <span className="ml-1 text-sm font-medium text-gray-900">
+              {personData.info.year_of_birth}
+            </span>
           </div>
-          <div className="flex rounded-full border border-gray-200 p-0.5 bg-gray-50 mr-2 h-fit">
+          <div className="mr-2 flex h-fit rounded-full border border-gray-200 bg-gray-50 p-0.5">
             <button
-              className={`px-2 py-0.5 text-xs rounded-full transition-colors ${!isStatisticsView ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
-              onClick={() => setIsStatisticsView(false)}>
+              className={`rounded-full px-2 py-0.5 text-xs transition-colors ${!isStatisticsView ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+              onClick={() => setIsStatisticsView(false)}
+            >
               Statistics
             </button>
             <button
-              className={`px-2 py-0.5 text-xs rounded-full transition-colors ${isStatisticsView ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
-              onClick={() => setIsStatisticsView(true)}>
+              className={`rounded-full px-2 py-0.5 text-xs transition-colors ${isStatisticsView ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+              onClick={() => setIsStatisticsView(true)}
+            >
               Table
             </button>
           </div>
         </div>
         <div className="flex gap-4">
-          <div className="w-4/5 h-[220px] min-w-[850px] relative" ref={timelineContainerRef}></div>
-          <div className="w-1/5 border rounded-lg p-4 bg-white shadow-md h-[220px] overflow-y-auto">
-            <h2 className="text-lg font-bold mb-2">Overlapping Visits</h2>
+          <div
+            className="relative h-[220px] w-4/5 min-w-[850px]"
+            ref={timelineContainerRef}
+          ></div>
+          <div className="h-[220px] w-1/5 overflow-y-auto rounded-lg border bg-white p-4 shadow-md">
+            <h2 className="mb-2 text-lg font-bold">Overlapping Visits</h2>
             {selectedGroup ? (
               <ul className="space-y-2">
                 {selectedGroup.map((visit, index) => (
-                  <li key={index} className="block hover:bg-gray-100 text-sm border-b pb-1">
-                    <button className="w-full text-left" onClick={() => fetchDataById(visit.visit_occurrence_id)}>
-                      <strong>ID:</strong> {visit.visit_concept_id}<br />
-                      <strong>Start:</strong> {visit.visit_start_date}<br />
+                  <li
+                    key={index}
+                    className="block border-b pb-1 text-sm hover:bg-gray-100"
+                  >
+                    <button
+                      className="w-full text-left"
+                      onClick={() => fetchDataById(visit.visit_occurrence_id)}
+                    >
+                      <strong>ID:</strong> {visit.visit_concept_id}
+                      <br />
+                      <strong>Start:</strong> {visit.visit_start_date}
+                      <br />
                       <strong>End:</strong> {visit.visit_end_date}
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-500">Click on a bar to view details.</p>
+              <p className="text-sm text-gray-500">
+                Click on a bar to view details.
+              </p>
             )}
           </div>
         </div>
       </header>
 
-      <div className="pt-8 pb-[60px] flex flex-col gap-5">
+      <div className="flex flex-col gap-5 pb-[60px] pt-8">
         {!isStatisticsView ? (
           <div className="w-full">
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
               {/* [수정] Donut Chart 데이터 형식 확인 - personStatistics?.visitType이 객체 형태여야 함 */}
               {visibleCharts.includes('visitTypeRatio') && (
                 <ChartCard
@@ -554,10 +692,23 @@ export default function PersonDetailPage() {
                   hasXButton={true}
                   isTableView={isTableView.visitTypeRatio}
                   onClose={() => handleCloseChart('visitTypeRatio')}
-                  onToggleView={(view) => setIsTableView(prev => ({ ...prev, visitTypeRatio: view }))}
-                  tableContent={<DataTable data={transformDonutChartToTableData({ data: personStatistics?.visitType || {} })} />}
+                  onToggleView={(view) =>
+                    setIsTableView((prev) => ({
+                      ...prev,
+                      visitTypeRatio: view,
+                    }))
+                  }
+                  tableContent={
+                    <DataTable
+                      data={transformDonutChartToTableData({
+                        data: personStatistics?.visitType || {},
+                      })}
+                    />
+                  }
                 >
-                  <SingleDonutChartWrapper data={personStatistics?.visitType || {}} />
+                  <SingleDonutChartWrapper
+                    data={personStatistics?.visitType || {}}
+                  />
                 </ChartCard>
               )}
 
@@ -570,11 +721,24 @@ export default function PersonDetailPage() {
                   hasXButton={true}
                   isTableView={isTableView.departmentVisits}
                   onClose={() => handleCloseChart('departmentVisits')}
-                  onToggleView={(view) => setIsTableView(prev => ({ ...prev, departmentVisits: view }))}
-                  tableContent={<DataTable data={transformDonutChartToTableData({ data: personStatistics?.departmentVisit || {} })} />}
+                  onToggleView={(view) =>
+                    setIsTableView((prev) => ({
+                      ...prev,
+                      departmentVisits: view,
+                    }))
+                  }
+                  tableContent={
+                    <DataTable
+                      data={transformDonutChartToTableData({
+                        data: personStatistics?.departmentVisit || {},
+                      })}
+                    />
+                  }
                 >
                   {/* departmentVisit는 stats 응답에 없으므로, 임시로 visitType 데이터를 사용하거나 API를 수정해야 합니다. */}
-                  <SingleDonutChartWrapper data={personStatistics?.departmentVisit || {}} />
+                  <SingleDonutChartWrapper
+                    data={personStatistics?.departmentVisit || {}}
+                  />
                 </ChartCard>
               )}
 
@@ -585,17 +749,27 @@ export default function PersonDetailPage() {
                 hasTableView={true}
                 isTableView={isTableView.topTenDrugRatio}
                 onClose={() => handleCloseChart('topTenDrugs')}
-
-                onToggleView={(view) => setIsTableView(prev => ({ ...prev, topTenDrugRatio: view }))}
+                onToggleView={(view) =>
+                  setIsTableView((prev) => ({ ...prev, topTenDrugRatio: view }))
+                }
                 // [수정] transformStatsData 적용
-                tableContent={<BarChartTableView data={transformStatsData(personStatistics?.topTenDrug).map(item => ({ name: item.label, count: item.value }))} domainKey="drug" />}
+                tableContent={
+                  <BarChartTableView
+                    data={transformStatsData(personStatistics?.topTenDrug).map(
+                      (item) => ({ name: item.label, count: item.value }),
+                    )}
+                    domainKey="drug"
+                  />
+                }
               >
-                <BarChartWrapper data={
-                  // [수정] transformStatsData 적용
-                  transformStatsData(personStatistics?.topTenDrug)
-                    .sort((a, b) => b.value - a.value)
-                    .map(item => ({ name: item.label, count: item.value }))
-                } />
+                <BarChartWrapper
+                  data={
+                    // [수정] transformStatsData 적용
+                    transformStatsData(personStatistics?.topTenDrug)
+                      .sort((a, b) => b.value - a.value)
+                      .map((item) => ({ name: item.label, count: item.value }))
+                  }
+                />
               </ChartCard>
 
               <ChartCard
@@ -603,13 +777,29 @@ export default function PersonDetailPage() {
                 type="half"
                 hasTableView={true}
                 isTableView={isTableView.topTenConditionRatio}
-                onToggleView={(view) => setIsTableView(prev => ({ ...prev, topTenConditionRatio: view }))}
+                onToggleView={(view) =>
+                  setIsTableView((prev) => ({
+                    ...prev,
+                    topTenConditionRatio: view,
+                  }))
+                }
                 onClose={() => handleCloseChart('topTenConditions')}
                 // [수정] transformStatsData 적용
-                tableContent={<BarChartTableView data={transformStatsData(personStatistics?.topTenCondition).map(item => ({ name: item.label, count: item.value }))} domainKey="condition" />}
+                tableContent={
+                  <BarChartTableView
+                    data={transformStatsData(
+                      personStatistics?.topTenCondition,
+                    ).map((item) => ({ name: item.label, count: item.value }))}
+                    domainKey="condition"
+                  />
+                }
               >
                 {/* [수정] transformStatsData 적용 */}
-                <BarChartWrapper data={transformStatsData(personStatistics?.topTenCondition).map(item => ({ name: item.label, count: item.value }))} />
+                <BarChartWrapper
+                  data={transformStatsData(
+                    personStatistics?.topTenCondition,
+                  ).map((item) => ({ name: item.label, count: item.value }))}
+                />
               </ChartCard>
 
               <ChartCard
@@ -617,13 +807,29 @@ export default function PersonDetailPage() {
                 type="half"
                 hasTableView={true}
                 isTableView={isTableView.topTenProcedureRatio}
-                onToggleView={(view) => setIsTableView(prev => ({ ...prev, topTenProcedureRatio: view }))}
+                onToggleView={(view) =>
+                  setIsTableView((prev) => ({
+                    ...prev,
+                    topTenProcedureRatio: view,
+                  }))
+                }
                 onClose={() => handleCloseChart('topTenProcedures')}
                 // [수정] transformStatsData 적용
-                tableContent={<BarChartTableView data={transformStatsData(personStatistics?.topTenProcedure).map(item => ({ name: item.label, count: item.value }))} domainKey="procedure" />}
+                tableContent={
+                  <BarChartTableView
+                    data={transformStatsData(
+                      personStatistics?.topTenProcedure,
+                    ).map((item) => ({ name: item.label, count: item.value }))}
+                    domainKey="procedure"
+                  />
+                }
               >
                 {/* [수정] transformStatsData 적용 */}
-                <BarChartWrapper data={transformStatsData(personStatistics?.topTenProcedure).map(item => ({ name: item.label, count: item.value }))} />
+                <BarChartWrapper
+                  data={transformStatsData(
+                    personStatistics?.topTenProcedure,
+                  ).map((item) => ({ name: item.label, count: item.value }))}
+                />
               </ChartCard>
 
               <ChartCard
@@ -632,29 +838,51 @@ export default function PersonDetailPage() {
                 hasTableView={true}
                 onClose={() => handleCloseChart('topTenMeasurements')}
                 // [수정] transformStatsData 적용
-                tableContent={<BarChartTableView data={transformStatsData(personStatistics?.topTenMeasurement).map(item => ({ name: item.label, count: item.value }))} domainKey="measurement" />}
+                tableContent={
+                  <BarChartTableView
+                    data={transformStatsData(
+                      personStatistics?.topTenMeasurement,
+                    ).map((item) => ({ name: item.label, count: item.value }))}
+                    domainKey="measurement"
+                  />
+                }
               >
                 {/* [수정] transformStatsData 적용 */}
-                <BarChartWrapper data={transformStatsData(personStatistics?.topTenMeasurement).map(item => ({ name: item.label, count: item.value }))} />
+                <BarChartWrapper
+                  data={transformStatsData(
+                    personStatistics?.topTenMeasurement,
+                  ).map((item) => ({ name: item.label, count: item.value }))}
+                />
               </ChartCard>
             </div>
           </div>
         ) : (
           // Table View
           <div>
-            <div className="relative flex justify-end mb-2">
+            <div className="relative mb-2 flex justify-end">
               <button
-                className="px-4 py-2 ml-auto w-fit text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                onClick={() => setIsSelectTableOpen(prev => !prev)}>
+                className="ml-auto w-fit rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={() => setIsSelectTableOpen((prev) => !prev)}
+              >
                 <span>{isSelectTableOpen ? '▲' : '▼'} Select Tables</span>
               </button>
               {isSelectTableOpen && (
-                <div className="absolute right-0 top-full z-50 min-w-[250px] bg-white border border-gray-300 rounded-lg shadow-md p-4">
+                <div className="absolute right-0 top-full z-50 min-w-[250px] rounded-lg border border-gray-300 bg-white p-4 shadow-md">
                   <div className="flex flex-col gap-3">
-                    {selectItems.map(item => (
-                      <label key={item.id} className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={item.checked} onChange={() => handleCheckboxChange(item.id)} className="w-4 h-4 text-blue-600 rounded border-gray-300" />
-                        <span className="text-sm text-gray-700">{item.name}</span>
+                    {selectItems.map((item) => (
+                      <label
+                        key={item.id}
+                        className="flex cursor-pointer items-center gap-2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={item.checked}
+                          onChange={() => handleCheckboxChange(item.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {item.name}
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -663,18 +891,26 @@ export default function PersonDetailPage() {
             </div>
             {/* Svelte의 svelte:component -> React의 동적 컴포넌트 렌더링 */}
             {tableProps?.cdm_info && (
-              <CDMInfo careSite={tableProps["cdm_info"].careSite} location={tableProps["cdm_info"].location} visitOccurrence={tableProps["cdm_info"].visitOccurrence} />
+              <CDMInfo
+                careSite={tableProps['cdm_info'].careSite}
+                location={tableProps['cdm_info'].location}
+                visitOccurrence={tableProps['cdm_info'].visitOccurrence}
+              />
             )}
-            {selectItems.filter(item => item.checked).map(item => {
-              const ComponentToRender = tableComponents[item.id];
-              // [수정] tableProps[item.id]가 없는 경우를 대비하여 기본값({}) 전달
-              const props = tableProps[item.id] || {};
-              return ComponentToRender ? <ComponentToRender key={item.id} {...props} /> : null;
-            })}
+            {selectItems
+              .filter((item) => item.checked)
+              .map((item) => {
+                const ComponentToRender = tableComponents[item.id];
+                // [수정] tableProps[item.id]가 없는 경우를 대비하여 기본값({}) 전달
+                const props = tableProps[item.id] || {};
+                return ComponentToRender ? (
+                  <ComponentToRender key={item.id} {...props} />
+                ) : null;
+              })}
           </div>
         )}
         <Footer />
       </div>
     </div>
-  )
+  );
 }

@@ -52,7 +52,7 @@ export default function Layout() {
               </svg>
               <p className="text-xl font-bold">
                 <span className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Bento
+                  Canvas
                 </span>
               </p>
             </Link>
