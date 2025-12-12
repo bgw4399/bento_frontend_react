@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CategoryNode from '../CategoryNode/index.jsx';
-import { getCategories } from '../../../../../api/cohort-definition/categories.js';
-import { dummyCategories } from '../../../../../data/categories.js';
+import { getCategories } from '@/api/cohort-definition/categories.js';
+import { dummyCategories } from '@/data/categories.js';
 
 export default function CategoryTree() {
   const [categories, setCategories] = useState([]);
