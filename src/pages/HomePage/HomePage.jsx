@@ -7,7 +7,7 @@ import Footer from '../../components/Footer.jsx';
 export default function HomePage() {
   return (
     <>
-      <title>Bento - Medical Data Analytics</title>
+      <title>Canvas - Medical Data Analytics</title>
 
       <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-blue-50 to-white pt-[80px]">
         {/* 배경 로고 */}
@@ -35,7 +35,7 @@ export default function HomePage() {
               <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl md:text-6xl">
                 Welcome to{' '}
                 <span className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Bento
+                  Canvas
                 </span>
               </h1>
             </div>
@@ -114,7 +114,7 @@ export default function HomePage() {
                     <line x1="12" y1="16" x2="12" y2="12"></line>
                     <line x1="12" y1="8" x2="12.01" y2="8"></line>
                   </svg>
-                  About Bento
+                  About Canvas
                 </span>
               </a>
               <Link

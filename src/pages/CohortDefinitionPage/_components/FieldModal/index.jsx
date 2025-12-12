@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import LookupField from './fieldTypes/LookupField';
-import DateField from './fieldTypes/DateField';
-import DateTimeField from './fieldTypes/DateTimeField';
-import RangeField from './fieldTypes/RangeField';
-import SearchField from './fieldTypes/SearchField';
+import LookupField from './FieldTypes/LookupField';
+import DateField from './FieldTypes/DateField';
+import DateTimeField from './FieldTypes/DateTimeField';
+import RangeField from './FieldTypes/RangeField';
+import SearchField from './FieldTypes/SearchField';
 
 export default function FieldModal({
   showModal = false,

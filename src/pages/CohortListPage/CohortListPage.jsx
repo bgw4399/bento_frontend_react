@@ -2,104 +2,105 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Footer from '../../components/Footer.jsx';
 import LoadingComponent from '../../components/LoadingComponent.jsx';
-// Vite 환경 변수 사용법
+
 const API_URI = import.meta.env.VITE_PUBLIC_API_URI;
 
 export default function CohortListPage() {
-  // 1. 상태(State) 관리
+  // 서버 페이징 상태
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1); // UI는 1-based
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
   const [cohortList, setCohortList] = useState([]);
   const [selectedItems, setSelectedItems] = useState({});
 
   const navigate = useNavigate();
-  const ITEMS_PER_PAGE = 10;
 
-  // 2. 파생 상태(Derived State) 관리
-  const filteredData = useMemo(() => {
-    if (!searchQuery) return cohortList;
-    return cohortList.filter(
-      (item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.author.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-  }, [cohortList, searchQuery]);
-
+  // 총 페이지
   const totalPages = useMemo(
-    () => Math.ceil(filteredData.length / ITEMS_PER_PAGE),
-    [filteredData],
+    () => Math.max(1, Math.ceil(totalItems / pageSize)),
+    [totalItems, pageSize],
   );
 
-  const paginatedData = useMemo(() => {
-    return filteredData.slice(
-      (currentPage - 1) * ITEMS_PER_PAGE,
-      currentPage * ITEMS_PER_PAGE,
-    );
-  }, [filteredData, currentPage]);
+  // 서버에서 목록/검색 불러오기
+  async function fetchCohorts({ page = 1, limit = pageSize, query = '' } = {}) {
+    setLoading(true);
+    setErrorMessage('');
+    try {
+      // API는 0-based page로 보임(스웨거 기본값 0)
+      const apiPage = Math.max(0, Number(page) - 1);
+      const params = new URLSearchParams();
+      params.set('page', String(apiPage));
+      params.set('limit', String(limit));
+      if (query?.trim()) params.set('query', query.trim());
 
-  const pageNumbers = useMemo(
-    () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages],
-  );
+      const res = await fetch(`${API_URI}/api/cohort?${params.toString()}`);
+      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
 
+      const data = await res.json();
+
+      // 응답 유연 파싱 (배열/객체 모두 지원)
+      // 가능한 키 후보:
+      // - { cohorts: [], total, page, limit }
+      // - { items: [], total, page, limit }
+      // - [] (그냥 배열)
+      const items =
+        data?.cohorts ??
+        data?.items ??
+        (Array.isArray(data) ? data : (data?.data ?? []));
+
+      // 총 개수 추정 (없으면 현재 페이지 길이로)
+      const total =
+        Number(data?.total) ??
+        Number(data?.totalElements) ??
+        Number(data?.count) ??
+        (Array.isArray(items) ? Number(data?.length ?? 0) : 0);
+
+      // limit 보정
+      const effectiveLimit = Number(data?.limit) || limit || 10;
+
+      setCohortList(Array.isArray(items) ? items : []);
+      setTotalItems(
+        Number.isFinite(total) && total > 0
+          ? total
+          : Array.isArray(items)
+            ? items.length
+            : 0,
+      );
+      setPageSize(effectiveLimit);
+    } catch (e) {
+      console.error(e);
+      setErrorMessage('An error occurred while fetching data.');
+      setTimeout(() => setErrorMessage(''), 5000);
+      setCohortList([]);
+      setTotalItems(0);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // 최초 + 페이지/검색 변경 시 서버 호출
   useEffect(() => {
-    const fetchCohorts = async () => {
-      setLoading(true);
-      try {
-        // const res = await fetch(`${API_URI}/api/cohort/`);
-        const res = await fetch('/cohort-list-testdata.json');
+    fetchCohorts({ page: currentPage, limit: pageSize, query: searchQuery });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, searchQuery]);
 
-        if (!res.ok) throw new Error('Failed to fetch data');
-        const data = await res.json();
-        setCohortList(data);
-        // setCohorts(data);
-      } catch (error) {
-        setErrorMessage('An error occurred while fetching data.');
-        setTimeout(() => setErrorMessage(''), 5000);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCohorts();
-  }, []);
-
-  // 4. 함수 및 이벤트 핸들러
+  // 선택 토글
   const handleCheckboxChange = (id) => {
     setSelectedItems((prev) => ({ ...prev, [id]: !prev[id] }));
     setErrorMessage('');
   };
 
+  // 검색 실행
   const handleSearch = () => {
-    setSearchQuery(searchInput);
     setCurrentPage(1);
+    setSearchQuery(searchInput);
   };
 
-  const handleComparison = () => {
-    const selectedCount = Object.values(selectedItems).filter(Boolean).length;
-    let newErrorMessage = '';
-    if (selectedCount < 2) {
-      newErrorMessage = 'Please select at least 2 cohorts to compare.';
-    } else if (selectedCount > 5) {
-      newErrorMessage = 'You can select up to 5 cohorts for comparison.';
-    }
-
-    if (newErrorMessage) {
-      setErrorMessage(newErrorMessage);
-      setTimeout(() => setErrorMessage(''), 5000);
-      return;
-    }
-
-    const selectedIds = Object.entries(selectedItems)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([id]) => id);
-
-    navigate(`/cohort/comparison?cohorts=${selectedIds.join(',')}`);
-  };
-
+  // 삭제
   const handleDelete = async () => {
     const selectedIds = Object.entries(selectedItems)
       .filter(([_, isSelected]) => isSelected)
@@ -120,22 +121,17 @@ export default function CohortListPage() {
     for (const id of selectedIds) {
       try {
         await fetch(`${API_URI}/api/cohort/${id}`, { method: 'DELETE' });
-      } catch (e) {
+      } catch {
         deleteError = true;
       }
     }
 
-    try {
-      const res = await fetch(`${API_URI}/api/cohort/`);
-      const data = await res.json();
-      setCohortList(data.cohorts);
-      setSelectedItems({});
-    } catch (e) {
-      setErrorMessage('Failed to refresh cohort list.');
-      setTimeout(() => setErrorMessage(''), 5000);
-    } finally {
-      setLoading(false);
-    }
+    await fetchCohorts({
+      page: currentPage,
+      limit: pageSize,
+      query: searchQuery,
+    });
+    setSelectedItems({});
 
     if (deleteError) {
       setErrorMessage('Failed to delete some cohorts.');
@@ -143,10 +139,8 @@ export default function CohortListPage() {
     }
   };
 
-  // 5. UI (JSX) 렌더링
   if (loading) {
     return <LoadingComponent message="Loading cohort data..." />;
-    // return <div>Loading...</div>;
   }
 
   const selectedCount = Object.values(selectedItems).filter(Boolean).length;
@@ -172,9 +166,12 @@ export default function CohortListPage() {
     iconStyles = 'bg-blue-100 text-blue-400';
   }
 
+  // 1페이지가 0개가 되지 않도록 보정
+  const safeCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
+
   return (
     <>
-      <title>Cohort List - Bento</title>
+      <title>Cohort List - Canvas</title>
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="mb-8">
@@ -213,19 +210,6 @@ export default function CohortListPage() {
                 </button>
               </div>
 
-              {/* 코호트 비교 버튼 주석 처리 */}
-              {/*<button*/}
-              {/*  className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${compareButtonStyles}`}*/}
-              {/*  onClick={handleComparison}*/}
-              {/*>*/}
-              {/*  <span>Compare</span>*/}
-              {/*  <span*/}
-              {/*    className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${iconStyles}`}*/}
-              {/*  >*/}
-              {/*    {selectedCount}*/}
-              {/*  </span>*/}
-              {/*</button>*/}
-
               <Link
                 to="/cohort-definition"
                 className="rounded-md border border-blue-600 bg-white px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
@@ -254,10 +238,9 @@ export default function CohortListPage() {
               </button>
             </div>
 
-            {/* 테이블과 페이지네이션 코드는 여기에 그대로 들어갑니다. */}
+            {/* 목록 */}
             <div className="overflow-x-auto">
               <table className="min-w-full">
-                {/* thead */}
                 <thead>
                   <tr className="bg-gray-50 text-left">
                     <th className="w-[5%] px-4 py-3">
@@ -283,18 +266,20 @@ export default function CohortListPage() {
                     </th>
                   </tr>
                 </thead>
-                {/* tbody */}
+
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {paginatedData.map((item, index) => {
-                    const isSelected = !!selectedItems[item.id];
+                  {cohortList.map((item, index) => {
+                    const id = item.id ?? item.cohort_id ?? item._id;
+                    const isSelected = !!selectedItems[id];
+                    // 서버 페이징이므로 역순 번호는 전체 기준으로 계산
                     const rowNumber =
-                      filteredData.length -
-                      ((currentPage - 1) * ITEMS_PER_PAGE + index);
+                      totalItems - ((safeCurrentPage - 1) * pageSize + index);
+
                     return (
                       <tr
-                        key={item.cohort_id}
+                        key={id}
                         className={`group cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                        onClick={() => handleCheckboxChange(item.id)}
+                        onClick={() => handleCheckboxChange(id)}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center">
@@ -308,11 +293,11 @@ export default function CohortListPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center text-sm text-gray-500">
-                          {rowNumber}
+                          {rowNumber > 0 ? rowNumber : index + 1}
                         </td>
                         <td className="px-4 py-3">
                           <Link
-                            to={`/cohort/${item.id}`}
+                            to={`/cohort/${id}`}
                             className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -325,13 +310,17 @@ export default function CohortListPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500">
-                          anonymous
+                          {item.author ?? 'anonymous'}
                         </td>
                         <td className="px-4 py-3 text-center text-sm text-gray-500">
-                          {new Date(item.createdAt).toLocaleString()}
+                          {item.created_at
+                            ? new Date(item.created_at).toLocaleString()
+                            : '-'}
                         </td>
                         <td className="px-4 py-3 text-center text-sm text-gray-500">
-                          {new Date(item.updatedAt).toLocaleString()}
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleString()
+                            : '-'}
                         </td>
                       </tr>
                     );
@@ -340,30 +329,37 @@ export default function CohortListPage() {
               </table>
             </div>
 
+            {/* 서버 페이징 네비게이션 */}
             {totalPages > 1 && (
               <div className="mt-6 flex items-center justify-center space-x-2">
                 <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={safeCurrentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   aria-label="Previous page"
-                  className={`rounded-md p-2 text-sm font-medium transition-colors ${currentPage === 1 ? 'text-gray-400' : 'text-blue-600 hover:text-blue-800'}`}
+                  className={`rounded-md p-2 text-sm font-medium transition-colors ${safeCurrentPage === 1 ? 'text-gray-400' : 'text-blue-600 hover:text-blue-800'}`}
                 >
                   ‹
                 </button>
-                {pageNumbers.map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-blue-100'}`}
-                  >
-                    {page}
-                  </button>
-                ))}
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${safeCurrentPage === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-blue-100'}`}
+                    >
+                      {page}
+                    </button>
+                  ),
+                )}
+
                 <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={safeCurrentPage === totalPages}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
                   aria-label="Next page"
-                  className={`rounded-md p-2 text-sm font-medium transition-colors ${currentPage === totalPages ? 'text-gray-400' : 'text-blue-600 hover:text-blue-800'}`}
+                  className={`rounded-md p-2 text-sm font-medium transition-colors ${safeCurrentPage === totalPages ? 'text-gray-400' : 'text-blue-600 hover:text-blue-800'}`}
                 >
                   ›
                 </button>

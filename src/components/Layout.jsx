@@ -52,7 +52,7 @@ export default function Layout() {
               </svg>
               <p className="text-xl font-bold">
                 <span className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  Bento
+                  Canvas
                 </span>
               </p>
             </Link>
@@ -76,7 +76,7 @@ export default function Layout() {
                   Person
                 </Link>
                 <Link
-                  to="/custom-chart"
+                  to="/data-browser"
                   onMouseEnter={() => handleMouseEnter('custom')}
                   className={`flex h-[60px] w-[200px] items-center px-6 text-[15px] transition-all duration-200 hover:font-semibold hover:text-slate-900 ${activeMenu === 'custom' ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'}`}
                 >
@@ -92,13 +92,13 @@ export default function Layout() {
               </div>
               <div className="flex w-full justify-end">
                 <Link
-                  to="/login"
+                  to="/integrated-login"
                   className="flex h-[60px] items-center px-6 text-[15px] transition-all duration-200 hover:font-semibold hover:text-slate-900"
                 >
                   Login
                 </Link>
                 <Link
-                  to="/register"
+                  to="/integrated-register"
                   className="flex h-[60px] items-center px-6 text-[15px] transition-all duration-200 hover:font-semibold hover:text-slate-900"
                 >
                   Register
@@ -154,24 +154,24 @@ export default function Layout() {
                     </ul>
                   </div>
                   <div className="w-[200px] border-r py-4">
-                    {/*<ul className="space-y-3">*/}
-                    {/*  <li onMouseEnter={() => setActiveMenu('custom')}>*/}
-                    {/*    <Link*/}
-                    {/*      to="/custom-chart"*/}
-                    {/*      className="block px-6 text-sm text-slate-600 hover:text-blue-600"*/}
-                    {/*    >*/}
-                    {/*      Chart Set List*/}
-                    {/*    </Link>*/}
-                    {/*  </li>*/}
-                    {/*  <li onMouseEnter={() => setActiveMenu('custom')}>*/}
-                    {/*    <Link*/}
-                    {/*      to="/custom-chart/new"*/}
-                    {/*      className="block px-6 text-sm text-slate-600 hover:text-blue-600"*/}
-                    {/*    >*/}
-                    {/*      Chart Definition*/}
-                    {/*    </Link>*/}
-                    {/*  </li>*/}
-                    {/*</ul>*/}
+                    <ul className="space-y-3">
+                      <li onMouseEnter={() => setActiveMenu('custom')}>
+                        <Link
+                          to="/data-browser"
+                          className="block px-6 text-sm text-slate-600 hover:text-blue-600"
+                        >
+                          Data Browser
+                        </Link>
+                      </li>
+                      <li onMouseEnter={() => setActiveMenu('custom')}>
+                        <Link
+                          to="/custom-chart"
+                          className="block px-6 text-sm text-slate-600 hover:text-blue-600"
+                        >
+                          Custom Chart
+                        </Link>
+                      </li>
+                    </ul>
                   </div>
                   <div className="w-[200px] border-r py-4">
                     <ul className="space-y-3">

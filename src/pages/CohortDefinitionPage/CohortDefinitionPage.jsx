@@ -10,15 +10,6 @@ function cx(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-// 그룹별 색상 (원하면 rowStyles 기반으로 바꿔도 OK)
-const groupSegmentClasses = [
-  'bg-blue-700',
-  'bg-blue-400',
-  'bg-blue-300',
-  'bg-cyan-300',
-  'bg-sky-300',
-];
-
 // 분할 바
 function SegmentedBar({ rows: segRows = [], total: rawTotal }) {
   const total = Number(rawTotal) || 0;
@@ -692,6 +683,22 @@ export default function CohortDefinitionPage() {
   }
 
   function buildFilterCondition(item) {
+    // 0) fieldType 정규화
+    const rawType = (item.fieldType ?? '').toString().trim().toLowerCase();
+    const ft =
+      rawType === 'list' || rawType === 'select'
+        ? 'lookup'
+        : rawType === 'range' || rawType === 'integer'
+          ? 'range_int'
+          : rawType === 'number' || rawType === 'float'
+            ? 'range_float'
+            : rawType;
+
+    // 1) 테이블 이름 확정
+    const tableName =
+      item.tableName || convertFieldTypeToApiType(item.fieldType);
+
+    // 2) 테이블-컬럼 매핑
     const tableColumnMapping = {
       condition_era: {
         condition_concept_id: 'conceptset',
@@ -701,6 +708,8 @@ export default function CohortDefinitionPage() {
         condition_era_end_age: 'endAge',
         condition_era_gender: 'gender',
         condition_era_status: 'conditionStatus',
+        // count 예시 (서버 스키마 키명에 맞춰 오른쪽 값을 수정하세요)
+        condition_occurrence_count: 'occurrenceCount',
       },
       condition_occurrence: {
         condition_concept_id: 'conceptset',
@@ -855,57 +864,49 @@ export default function CohortDefinitionPage() {
       },
     };
 
-    const tableName =
-      item.tableName || convertFieldTypeToApiType(item.fieldType);
     const filter = { type: tableName };
     const columnMapping = tableColumnMapping[tableName] || {};
+    const mapField = (fieldName) => columnMapping[fieldName];
 
-    // lookup
+    // 3) Lookup
     if (
-      item.fieldType === 'lookup' &&
+      ft === 'lookup' &&
       item.selectedItems &&
       item.selectedItems.length > 0
     ) {
-      const conceptsetField = columnMapping[item.fieldName];
-      if (conceptsetField) {
+      const conceptField = mapField(item.fieldName);
+      if (conceptField) {
         const conceptIds = item.selectedItems.map(
-          (x) => x.target_concept_id || x,
+          (x) => x?.target_concept_id ?? x,
         );
-        filter[conceptsetField] = { eq: conceptIds };
+        filter[conceptField] = { eq: conceptIds };
         return filter;
       }
     }
 
-    // date/datetime
-    if (
-      (item.fieldType === 'date' || item.fieldType === 'datetime') &&
-      item.operator
-    ) {
-      const dateField = columnMapping[item.fieldName];
+    // 4) Date/Datetime
+    if ((ft === 'date' || ft === 'datetime') && item.operator) {
+      const dateField = mapField(item.fieldName);
       if (dateField) {
-        filter[dateField] = item.operator;
+        filter[dateField] = item.operator; // {gte, lte, ...}
         return filter;
       }
     }
 
-    // range
-    if (
-      (item.fieldType === 'range_int' || item.fieldType === 'range_float') &&
-      item.operator
-    ) {
-      const rangeField = columnMapping[item.fieldName];
+    // 5) Range (int/float)
+    if ((ft === 'range_int' || ft === 'range_float') && item.operator) {
+      const rangeField = mapField(item.fieldName);
       if (rangeField) {
-        filter[rangeField] = item.operator;
+        filter[rangeField] = item.operator; // {gte, lte, ...}
         return filter;
       }
-      return filter;
     }
 
-    // search
-    if (item.fieldType === 'search' && item.operator?.keywords?.length > 0) {
+    // 6) Search(키워드)
+    if (ft === 'search' && item.operator?.keywords?.length > 0) {
       const keywordItem = item.operator.keywords[0];
-      const sourceField = columnMapping[item.fieldName];
-      if (sourceField && keywordItem.keyword) {
+      const sourceField = mapField(item.fieldName);
+      if (sourceField && keywordItem?.keyword) {
         if (keywordItem.operator === 'contains') {
           filter[sourceField] = { contains: keywordItem.keyword };
         } else if (keywordItem.operator === 'not_contains') {
@@ -917,6 +918,7 @@ export default function CohortDefinitionPage() {
       }
     }
 
+    // 매핑 불가 시 type만 유지 (서버에서 무시되도록)
     return filter;
   }
 
@@ -1120,8 +1122,8 @@ export default function CohortDefinitionPage() {
                     </div>
                   </div>
                 ) : cohortNameChecked &&
-                  cohortName.trim() &&
-                  !cohortNameError ? (
+                cohortName.trim() &&
+                !cohortNameError ? (
                   <div className="flex flex-row items-center gap-1">
                     <svg
                       className="h-4 w-4 text-green-500"
@@ -1172,15 +1174,8 @@ export default function CohortDefinitionPage() {
               <div className="flex h-full items-center gap-0 overflow-x-auto pr-4">
                 {rows.map((row, rowIndex) => {
                   const rowStyle = getRowStyle(rowIndex);
-
-                  const segments = rows
-                    .map((r, i) => ({
-                      label: r.name,
-                      count: r.patientCount || 0,
-                      className:
-                        groupSegmentClasses[i % groupSegmentClasses.length],
-                    }))
-                    .filter((s) => s.count > 0);
+                  const barClass = rowStyle?.bar || 'bg-slate-500';
+                  const textClass = rowStyle?.text || 'text-slate-800';
 
                   return (
                     <React.Fragment key={row.id}>
@@ -1241,30 +1236,23 @@ export default function CohortDefinitionPage() {
                         </div>
 
                         <div className="space-y-1 text-center">
-                          {finalPatientBase > 0 ? (
+                          {row.patientBase > 0 ? (
                             <>
-                              {/* ✅ 그룹이 2개 이상이면 분할 바, 아니면 기존 단색 바 */}
-                              {segments.length > 1 ? (
-                                <SegmentedBar
-                                  segments={segments}
-                                  total={finalPatientBase}
+                              <div className="mx-auto h-3 overflow-hidden rounded-full bg-slate-300">
+                                <div
+                                  className={`h-3 rounded-full ${barClass}`}
+                                  style={{
+                                    width: `${row.patientPercent.toFixed(1)}%`,
+                                  }}
                                 />
-                              ) : (
-                                <div className="mx-auto h-3 overflow-hidden rounded-full bg-slate-300">
-                                  <div
-                                    className="h-3 rounded-full bg-blue-900"
-                                    style={{
-                                      width: `${finalPatientPercent.toFixed(1)}%`,
-                                    }}
-                                  />
-                                </div>
-                              )}
-
-                              <p className="text-[10px] font-medium text-blue-900">
-                                {finalPatientCount.toLocaleString()} /{' '}
-                                {finalPatientBase.toLocaleString()}{' '}
-                                <span className="font-normal text-blue-900">
-                                  ({finalPatientPercent.toFixed(1)}%)
+                              </div>
+                              <p
+                                className={`text-[10px] font-medium ${textClass}`}
+                              >
+                                {row.patientCount.toLocaleString()} /{' '}
+                                {row.patientBase.toLocaleString()}
+                                <span className={`font-normal ${textClass}`}>
+                                  ({row.patientPercent.toFixed(1)}%)
                                 </span>
                               </p>
                             </>
@@ -1810,10 +1798,10 @@ export default function CohortDefinitionPage() {
               const currentItem = c?.items[selectedField ?? 0];
               return currentItem
                 ? {
-                    fieldName: currentItem.fieldName,
-                    tableName: currentItem.tableName,
-                    fieldType: currentItem.fieldType,
-                  }
+                  fieldName: currentItem.fieldName,
+                  tableName: currentItem.tableName,
+                  fieldType: currentItem.fieldType,
+                }
                 : null;
             })()}
             existingData={(() => {
@@ -1822,11 +1810,11 @@ export default function CohortDefinitionPage() {
               const currentItem = c?.items[selectedField ?? 0];
               return currentItem
                 ? {
-                    selectedItems: currentItem.selectedItems || [],
-                    conditions: currentItem.conditions,
-                    summary: currentItem.summary,
-                    operator: currentItem.operator || {},
-                  }
+                  selectedItems: currentItem.selectedItems || [],
+                  conditions: currentItem.conditions,
+                  summary: currentItem.summary,
+                  operator: currentItem.operator || {},
+                }
                 : null;
             })()}
             onClose={closeModal}

@@ -56,7 +56,7 @@ export default function RegisterPage() {
 
   return (
     <>
-      <title>Register - Bento</title>
+      <title>Register - Canvas</title>
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
         <form
           onSubmit={handleSubmit}

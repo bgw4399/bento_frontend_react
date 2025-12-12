@@ -11,6 +11,11 @@ import PersonDetailPage from './pages/PersonDetailPage/PersonDetailPage.jsx';
 import LoginPage from './pages/LoginPage/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage/RegisterPage.jsx';
 import CohortDefinitionPage from './pages/CohortDefinitionPage/CohortDefinitionPage.jsx';
+import DataBrowserPage from './pages/DataBrowserPage/DataBrowserPage.jsx';
+import CustomChartPage from './pages/CustomChartPage/CustomChartPage.jsx';
+import IntegratedLoginPage from '@/pages/IntegratedLoginPage/IntegratedLoginPage.jsx';
+import IntegratedRegisterPage from '@/pages/IntegratedRegisterPage/IntegratedRegisterPage.jsx';
+import IntegratedMainPage from '@/pages/IntergratedMainPage/IntegratedMainPage.jsx';
 
 function App() {
   const location = useLocation();
@@ -32,6 +37,15 @@ function App() {
         <Route index element={<HomePage />} />
         <Route path="cohort" element={<CohortListPage />} />
         <Route path="cohort-definition" element={<CohortDefinitionPage />} />
+        <Route path="data-browser" element={<DataBrowserPage />} />
+        <Route path="custom-chart" element={<CustomChartPage />} />
+
+        <Route path="integrated-login" element={<IntegratedLoginPage />} />
+        <Route
+          path="integrated-register"
+          element={<IntegratedRegisterPage />}
+        />
+        <Route path="integrated-main" element={<IntegratedMainPage />} />
 
         <Route path="person" element={<PersonLayout />}>
           <Route index element={<PersonSearchPage />} />
