@@ -32,8 +32,13 @@ const transformStatsData = (data) => {
 };
 
 const tableComponents = {
-    condition: Condition, drug: Drug, measurement: Measurement, observation: Observation,
-    procedure_occurrence: ProcedureOccurrence, specimen: Specimen, bio_signal: BioSignal
+  condition: Condition,
+  drug: Drug,
+  measurement: Measurement,
+  observation: Observation,
+  procedure_occurrence: ProcedureOccurrence,
+  specimen: Specimen,
+  bio_signal: BioSignal,
 };
 
 const MARGIN = { top: 20, right: 20, bottom: 30, left: 130 };
@@ -41,12 +46,12 @@ const BAR_HEIGHT = 20;
 const ROW_GAP = 25;
 const DEATH_BAR_WIDTH = 5;
 const visitMapping = {
-    9203: [0, "Emergency Room Visit", "#FF6B6B"],   // 응급
-    9201: [1, "Inpatient Visit", "#4ECDC4"],        // 입원
-    9202: [2, "Outpatient Visit", "#45B7D1"],       // 외래
-    581477: [3, "Home Visit", "#FFD166"],           // 가정
-    581385: [4, "Observation Room", "#BDC3C7"],
-    38004207: [5, "Ambulatory Clinic / Center", "#9B5DE5"],
+  9203: [0, 'Emergency Room Visit', '#FF6B6B'], // 응급
+  9201: [1, 'Inpatient Visit', '#4ECDC4'], // 입원
+  9202: [2, 'Outpatient Visit', '#45B7D1'], // 외래
+  581477: [3, 'Home Visit', '#FFD166'], // 가정
+  581385: [4, 'Observation Room', '#BDC3C7'],
+  38004207: [5, 'Ambulatory Clinic / Center', '#9B5DE5'],
 };
 
 export default function PersonDetailPage() {
@@ -254,142 +259,156 @@ export default function PersonDetailPage() {
       return svg;
     }
 
-            const fullData = await res.json();
-            const newTableProps = {
-                cdm_info: { careSite: fullData?.care_site, location: fullData?.location, visitOccurrence: fullData?.visitInfo },
-                condition: { conditionEra: fullData?.conditionEras, conditionOccurrence: fullData?.conditions },
-                drug: { drugExposure: fullData?.drugs },
-                // [추가] Svelte 코드 기준으로 누락된 데이터 매핑
-                measurement: { measurement: fullData?.measurements },
-                observation: { observation: fullData?.observations },
-                procedure_occurrence: { procedureOccurrence: fullData?.procedures },
-                specimen: { specimen: fullData?.specimens },
-                // bio_signal은 visit.service.ts에 없으므로, 필요시 백엔드 수정 필요
-                // bio_signal: { bioSignal: fullData?.bio_signal } 
-            };
-            setTableProps(newTableProps);
-            setIsStatisticsView(true); 
-        } catch (error) {
-            console.error("데이터 로드 실패:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [API_URI]); // API_URI 의존성 유지
+    function setupScales(_width) {
+      let minStart = new Date(
+        Math.min(...personVisits.map((d) => new Date(d.visit_start_date))),
+      );
+      let maxEnd = new Date(
+        Math.max(...personVisits.map((d) => new Date(d.visit_end_date))),
+      );
+      minStart.setDate(minStart.getDate() - 360);
+      maxEnd.setDate(maxEnd.getDate() + 360);
+      return d3
+        .scaleTime()
+        .domain([minStart, maxEnd])
+        .range([MARGIN.left, _width - MARGIN.right - 50]);
+    }
 
-    const drawTimeline = useCallback(() => {
-        if (!timelineContainerRef.current || !personVisits || personVisits.length === 0) return;
+    function setupClipPath(svg) {
+      svg
+        .append('defs')
+        .append('clipPath')
+        .attr('id', 'clip-timeline')
+        .append('rect')
+        .attr('x', MARGIN.left + 50)
+        .attr('y', 0)
+        .attr('width', innerWidth)
+        .attr('height', innerHeight);
+    }
 
-        const container = timelineContainerRef.current;
-        const { width, height } = container.getBoundingClientRect();
-        const innerWidth = width - MARGIN.left - MARGIN.right;
-        const innerHeight = height - MARGIN.top - MARGIN.bottom;
-        let xScale, xAxisGroup;
+    function setupTooltip() {
+      let tooltip = d3.select(container).select('.tooltip');
+      if (tooltip.empty()) {
+        tooltip = d3
+          .select(container)
+          .append('div')
+          .attr('class', 'tooltip')
+          .style('position', 'absolute')
+          .style('background', 'rgba(0,0,0,0.7)')
+          .style('color', 'white')
+          .style('padding', '5px')
+          .style('border-radius', '5px')
+          .style('font-size', '12px')
+          .style('visibility', 'hidden');
+      }
+      return tooltip;
+    }
 
-        // --- Helper Functions ---
-        function initializeSvg(_width, _height) {
-            let svg = d3.select(container).select("svg");
-            if (!svg.node()) {
-                svg = d3.select(container).append("svg")
-                    .attr("width", _width).attr("height", _height)
-                    .style("border", "1px solid #d1d5db").style("border-radius", "6px");
+    function groupOverlappingVisits(visits) {
+      const groups = [];
+      const visitsByType = d3.group(visits, (d) => d.visit_concept_id);
+      visitsByType.forEach((typeVisits) => {
+        const sorted = typeVisits
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(a.visit_start_date) - new Date(b.visit_start_date),
+          );
+        const typeGroups = [];
+        for (const visit of sorted) {
+          const vStart = new Date(visit.visit_start_date);
+          const vEnd = new Date(visit.visit_end_date);
+          let placed = false;
+          for (const group of typeGroups) {
+            const gEnd = new Date(group.end);
+            if (vStart <= gEnd) {
+              group.items.push(visit);
+              group.end = new Date(Math.max(gEnd.getTime(), vEnd.getTime()));
+              placed = true;
+              break;
             }
-            svg.selectAll("*").remove();
-            return svg;
+          }
+          if (!placed) {
+            typeGroups.push({ start: vStart, end: vEnd, items: [visit] });
+          }
         }
+        groups.push(...typeGroups);
+      });
+      return groups;
+    }
 
-        function setupScales(_width) {
-            let minStart = new Date(Math.min(...personVisits.map(d => new Date(d.visit_start_date))));
-            let maxEnd = new Date(Math.max(...personVisits.map(d => new Date(d.visit_end_date))));
-            minStart.setDate(minStart.getDate() - 360);
-            maxEnd.setDate(maxEnd.getDate() + 360);
-            return d3.scaleTime().domain([minStart, maxEnd]).range([MARGIN.left, _width - MARGIN.right - 50]);
-        }
+    function drawYAxis(svg) {
+      const entries = Object.entries(visitMapping);
+      const labelGroup = svg
+        .append('g')
+        .attr('transform', `translate(${MARGIN.left + 50}, ${MARGIN.top})`);
 
-        function setupClipPath(svg) {
-            svg.append("defs").append("clipPath").attr("id", "clip-timeline")
-                .append("rect").attr("x", MARGIN.left + 50).attr("y", 0)
-                .attr("width", innerWidth).attr("height", innerHeight);
-        }
+      labelGroup
+        .selectAll('text')
+        .data(entries)
+        .enter()
+        .append('text')
+        .attr('x', 0)
+        .attr('y', ([id]) => visitMapping[id][0] * ROW_GAP + 10)
+        .attr('text-anchor', 'end')
+        .attr('font-size', '11px')
+        .attr('alignment-baseline', 'middle')
+        .text(([_, [, label]]) => label);
 
-        function setupTooltip() {
-            let tooltip = d3.select(container).select(".tooltip");
-            if (tooltip.empty()) {
-                tooltip = d3.select(container).append("div")
-                    .attr("class", "tooltip")
-                    .style("position", "absolute").style("background", "rgba(0,0,0,0.7)")
-                    .style("color", "white").style("padding", "5px").style("border-radius", "5px")
-                    .style("font-size", "12px").style("visibility", "hidden");
-            }
-            return tooltip;
-        }
+      const guideLines = svg
+        .append('g')
+        .attr('transform', `translate(0, ${MARGIN.top})`);
 
-        function groupOverlappingVisits(visits) {
-            const groups = [];
-            const visitsByType = d3.group(visits, d => d.visit_concept_id);
-            visitsByType.forEach((typeVisits) => {
-                const sorted = typeVisits.slice().sort((a, b) => new Date(a.visit_start_date) - new Date(b.visit_start_date));
-                const typeGroups = [];
-                for (const visit of sorted) {
-                    const vStart = new Date(visit.visit_start_date);
-                    const vEnd = new Date(visit.visit_end_date);
-                    let placed = false;
-                    for (const group of typeGroups) {
-                        const gEnd = new Date(group.end);
-                        if (vStart <= gEnd) {
-                            group.items.push(visit);
-                            group.end = new Date(Math.max(gEnd.getTime(), vEnd.getTime()));
-                            placed = true;
-                            break;
-                        }
-                    }
-                    if (!placed) {
-                        typeGroups.push({ start: vStart, end: vEnd, items: [visit] });
-                    }
-                }
-                groups.push(...typeGroups);
-            });
-            return groups;
-        }
+      guideLines
+        .selectAll('line')
+        .data(entries)
+        .enter()
+        .append('line')
+        .attr('x1', MARGIN.left + 50)
+        .attr('x2', innerWidth + MARGIN.left)
+        .attr('y1', ([id]) => visitMapping[id][0] * ROW_GAP - 2.5)
+        .attr('y2', ([id]) => visitMapping[id][0] * ROW_GAP - 2.5)
+        .attr('stroke', '#e0e0e0')
+        .attr('stroke-width', 1);
+    }
+    function drawXAxis(svg) {
+      const axis = d3.axisBottom(xScale).ticks(10);
+      xAxisGroup = svg
+        .append('g')
+        .attr('transform', `translate(50,${innerHeight})`)
+        .call(axis);
+    }
+    function darkenColor(hex, amount = 0.1) {
+      const color = d3.color(hex);
+      if (!color) return hex;
 
-        function drawYAxis(svg) {
-            const entries = Object.entries(visitMapping);
-            const labelGroup = svg.append("g")
-                .attr("transform", `translate(${MARGIN.left + 50}, ${MARGIN.top})`);
+      const hsl = d3.hsl(color);
+      hsl.l = Math.max(0, hsl.l - amount); // lightness 낮추기 (0~1)
+      return hsl.formatHex();
+    }
+    function showTooltip(event, tooltip, text) {
+      tooltip
+        .style('visibility', 'visible')
+        .style('white-space', 'pre')
+        .text(text);
+    }
+    function moveTooltip(event, tooltip) {
+      const tooltipWidth = tooltip.node().offsetWidth;
+      const tooltipHeight = tooltip.node().offsetHeight;
+      const svgRect = container.getBoundingClientRect();
+      const pageX = event.clientX - svgRect.left;
+      const pageY = event.clientY - svgRect.top;
 
-            labelGroup.selectAll("text")
-                .data(entries)
-                .enter()
-                .append("text")
-                .attr("x", 0)
-                .attr("y", ([id]) => visitMapping[id][0] * ROW_GAP + 10)
-                .attr("text-anchor", "end")
-                .attr("font-size", "11px")
-                .attr("alignment-baseline", "middle")
-                .text(([_, [, label]]) => label);
+      let tooltipX = pageX + 10;
+      let tooltipY = pageY - 30;
 
-            const guideLines = svg.append("g")
-                .attr("transform", `translate(0, ${MARGIN.top})`);
+      if (tooltipX + tooltipWidth > svgRect.width)
+        tooltipX = pageX - tooltipWidth - 10;
+      if (tooltipY + tooltipHeight > svgRect.height)
+        tooltipY = pageY - tooltipHeight - 10;
 
-            guideLines.selectAll("line")
-                .data(entries)
-                .enter()
-                .append("line")
-                .attr("x1", MARGIN.left + 50)
-                .attr("x2", innerWidth + MARGIN.left)
-                .attr("y1", ([id]) => visitMapping[id][0] * ROW_GAP - 2.5)
-                .attr("y2", ([id]) => visitMapping[id][0] * ROW_GAP - 2.5)
-                .attr("stroke", "#e0e0e0")
-                .attr("stroke-width", 1);
-        }
-        function drawXAxis(svg) {
-            const axis = d3.axisBottom(xScale).ticks(10);
-            xAxisGroup = svg.append("g")
-                .attr("transform", `translate(50,${innerHeight})`)
-                .call(axis);
-        }
-        function darkenColor(hex, amount = 0.1) {
-            const color = d3.color(hex);
-            if (!color) return hex;
+      tooltip.style('top', `${tooltipY}px`).style('left', `${tooltipX}px`);
+    }
 
     function drawBars(svg, tooltip) {
       const barGroup = svg
@@ -526,9 +545,21 @@ export default function PersonDetailPage() {
     if (!isLoading && personVisits.length > 0) {
       drawTimeline();
     }
+    const handleResize = () => {
+      if (timelineContainerRef.current) {
+        d3.select(timelineContainerRef.current).select('svg').remove();
+        drawTimeline();
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isLoading, personVisits, drawTimeline]);
 
-    const genderCodes = { 8507: "Male", 8532: "Female", 0: "Unknown" };
+  if (isLoading) {
+    return <LoadingComponent message={message} />;
+  }
 
+  if (!personData) {
     return (
       <div
         className="flex flex-col items-center justify-center p-8 text-center"
@@ -856,141 +887,7 @@ export default function PersonDetailPage() {
                     ))}
                   </div>
                 </div>
-            </header>
-
-            <div className="pt-8 pb-[60px] flex flex-col gap-5">
-                {!isStatisticsView ? (
-                    <div className="w-full">
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                            {/* [수정] Donut Chart 데이터 형식 확인 - personStatistics?.visitType이 객체 형태여야 함 */}
-                            {visibleCharts.includes('visitTypeRatio') && (
-                                <ChartCard
-                                    title="Visit Type Ratio"
-                                    type="half"
-                                    hasTableView={true}
-                                    hasXButton={true}
-                                    isTableView={isTableView.visitTypeRatio}
-                                    onClose={() => handleCloseChart('visitTypeRatio')}
-                                    onToggleView={(view) => setIsTableView(prev => ({ ...prev, visitTypeRatio: view }))}
-                                    tableContent={<DataTable data={transformDonutChartToTableData({ data: personStatistics?.visitType || {} })} />}
-                                >
-                                    <SingleDonutChartWrapper data={personStatistics?.visitType || {}} />
-                                </ChartCard>
-                            )}
-
-                            {/* [수정] Donut Chart 데이터 형식 확인 - departmentVisit가 백엔드 응답에 없음 (임시 처리) */}
-                            {visibleCharts.includes('departmentVisits') && (
-                                <ChartCard
-                                    title="Department Visit Ratio"
-                                    type="half"
-                                    hasTableView={true}
-                                    hasXButton={true}
-                                    isTableView={isTableView.departmentVisits}
-                                    onClose={() => handleCloseChart('departmentVisits')}
-                                    onToggleView={(view) => setIsTableView(prev => ({ ...prev, departmentVisits: view }))}
-                                    tableContent={<DataTable data={transformDonutChartToTableData({ data: personStatistics?.departmentVisit || {} })} />}
-                                >
-                                    {/* departmentVisit는 stats 응답에 없으므로, 임시로 visitType 데이터를 사용하거나 API를 수정해야 합니다. */}
-                                    <SingleDonutChartWrapper data={personStatistics?.departmentVisit || {}} />
-                                </ChartCard>
-                            )}
-
-                            {/* Bar Charts (수정된 부분) */}
-                            <ChartCard
-                                title="Top 10 Drugs"
-                                type="half"
-                                hasTableView={true}
-                                isTableView={isTableView.topTenDrugRatio}
-                                onClose={() => handleCloseChart('topTenDrugs')}
-
-                                onToggleView={(view) => setIsTableView(prev => ({ ...prev, topTenDrugRatio: view }))}
-                                // [수정] transformStatsData 적용
-                                tableContent={<BarChartTableView data={transformStatsData(personStatistics?.topTenDrug).map(item => ({ name: item.label, count: item.value }))} domainKey="drug" />}
-                            >
-                                <BarChartWrapper data={
-                                    // [수정] transformStatsData 적용
-                                    transformStatsData(personStatistics?.topTenDrug)
-                                        .sort((a, b) => b.value - a.value)
-                                        .map(item => ({ name: item.label, count: item.value }))
-                                } />
-                            </ChartCard>
-
-                            <ChartCard
-                                title="Top 10 Conditions"
-                                type="half"
-                                hasTableView={true}
-                                isTableView={isTableView.topTenConditionRatio}
-                                onToggleView={(view) => setIsTableView(prev => ({ ...prev, topTenConditionRatio: view }))}
-                                onClose={() => handleCloseChart('topTenConditions')}
-                                // [수정] transformStatsData 적용
-                                tableContent={<BarChartTableView data={transformStatsData(personStatistics?.topTenCondition).map(item => ({ name: item.label, count: item.value }))} domainKey="condition" />}
-                            >
-                                {/* [수정] transformStatsData 적용 */}
-                                <BarChartWrapper data={transformStatsData(personStatistics?.topTenCondition).map(item => ({ name: item.label, count: item.value }))} />
-                            </ChartCard>
-
-                            <ChartCard
-                                title="Top 10 Procedures"
-                                type="half"
-                                hasTableView={true}
-                                isTableView={isTableView.topTenProcedureRatio}
-                                onToggleView={(view) => setIsTableView(prev => ({ ...prev, topTenProcedureRatio: view }))}
-                                onClose={() => handleCloseChart('topTenProcedures')}
-                                // [수정] transformStatsData 적용
-                                tableContent={<BarChartTableView data={transformStatsData(personStatistics?.topTenProcedure).map(item => ({ name: item.label, count: item.value }))} domainKey="procedure" />}
-                            >
-                                {/* [수정] transformStatsData 적용 */}
-                                <BarChartWrapper data={transformStatsData(personStatistics?.topTenProcedure).map(item => ({ name: item.label, count: item.value }))} />
-                            </ChartCard>
-
-                            <ChartCard
-                                title="Top 10 Measurements"
-                                type="half"
-                                hasTableView={true}
-                                onClose={() => handleCloseChart('topTenMeasurements')}
-                                // [수정] transformStatsData 적용
-                                tableContent={<BarChartTableView data={transformStatsData(personStatistics?.topTenMeasurement).map(item => ({ name: item.label, count: item.value }))} domainKey="measurement" />}
-                            >
-                                {/* [수정] transformStatsData 적용 */}
-                                <BarChartWrapper data={transformStatsData(personStatistics?.topTenMeasurement).map(item => ({ name: item.label, count: item.value }))} />
-                            </ChartCard>
-                        </div>
-                    </div>
-                ) : (
-                    // Table View
-                    <div>
-                        <div className="relative flex justify-end mb-2">
-                            <button
-                                className="px-4 py-2 ml-auto w-fit text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                                onClick={() => setIsSelectTableOpen(prev => !prev)}>
-                                <span>{isSelectTableOpen ? '▲' : '▼'} Select Tables</span>
-                            </button>
-                            {isSelectTableOpen && (
-                                <div className="absolute right-0 top-full z-50 min-w-[250px] bg-white border border-gray-300 rounded-lg shadow-md p-4">
-                                    <div className="flex flex-col gap-3">
-                                        {selectItems.map(item => (
-                                            <label key={item.id} className="flex items-center gap-2 cursor-pointer">
-                                                <input type="checkbox" checked={item.checked} onChange={() => handleCheckboxChange(item.id)} className="w-4 h-4 text-blue-600 rounded border-gray-300" />
-                                                <span className="text-sm text-gray-700">{item.name}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        {/* Svelte의 svelte:component -> React의 동적 컴포넌트 렌더링 */}
-                        {tableProps?.cdm_info && (
-                            <CDMInfo careSite={tableProps["cdm_info"].careSite} location={tableProps["cdm_info"].location} visitOccurrence={tableProps["cdm_info"].visitOccurrence} />
-                        )}
-                        {selectItems.filter(item => item.checked).map(item => {
-                            const ComponentToRender = tableComponents[item.id];
-                            // [수정] tableProps[item.id]가 없는 경우를 대비하여 기본값({}) 전달
-                            const props = tableProps[item.id] || {};
-                            return ComponentToRender ? <ComponentToRender key={item.id} {...props} /> : null;
-                        })}
-                    </div>
-                )}
-                <Footer />
+              )}
             </div>
             {/* Svelte의 svelte:component -> React의 동적 컴포넌트 렌더링 */}
             {tableProps?.cdm_info && (
