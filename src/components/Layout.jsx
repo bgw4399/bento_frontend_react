@@ -91,18 +91,20 @@ export default function Layout() {
                 </Link>
               </div>
               <div className="flex w-full justify-end">
-                <Link
-                  to="/integrated-login"
+                <a
+                  href="http://172.23.100.140:1215"
+                  target="_self"
                   className="flex h-[60px] items-center px-6 text-[15px] transition-all duration-200 hover:font-semibold hover:text-slate-900"
                 >
                   Login
-                </Link>
-                <Link
-                  to="/integrated-register"
+                </a>
+                <a
+                  href="http://172.23.100.140:1215/register"
+                  target="_self"
                   className="flex h-[60px] items-center px-6 text-[15px] transition-all duration-200 hover:font-semibold hover:text-slate-900"
                 >
                   Register
-                </Link>
+                </a>
               </div>
             </nav>
           </div>
