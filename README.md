@@ -1,69 +1,40 @@
-# React + TypeScript + Vite
+# Bento · CDM Explorer Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+의료 연구용 CDM 데이터를 탐색하고 코호트를 정의하는 React 프런트엔드입니다.
+코호트 목록·조건 편집, 대상자 조회, 도메인별 데이터 탐색과 차트 화면을 제공합니다.
 
-Currently, two official plugins are available:
+**React 19 · Vite 7 · JavaScript / TypeScript · Tailwind CSS · D3 · Recharts**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 주요 화면
 
-## Expanding the ESLint configuration
+| 화면 | 구현 위치 |
+| :--- | :--- |
+| 코호트 목록과 정의 | [CohortListPage](src/pages/CohortListPage/) · [CohortDefinitionPage](src/pages/CohortDefinitionPage/) |
+| 데이터 브라우저 | [DataBrowserPage](src/pages/DataBrowserPage/) |
+| 대상자 검색과 상세 | [PersonSearchPage](src/pages/PersonSearchPage/) · [PersonDetailPage](src/pages/PersonDetailPage/) |
+| 사용자 정의 차트 | [CustomChartPage](src/pages/CustomChartPage/) |
+| API 호출 | [src/api](src/api/) |
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 로컬 개발
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+```bash
+npm ci
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+루트에 `.env.local`을 만들고 연결할 서버의 API 주소를 지정합니다.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x';
-import reactDom from 'eslint-plugin-react-dom';
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+```dotenv
+VITE_PUBLIC_API_URI=http://localhost:8000
 ```
+
+주소는 실제 백엔드에 맞춰 바꿔야 합니다. 인증과 데이터 조회에는 호환되는 백엔드가 필요하며, 이 저장소만으로 의료 데이터가 준비되지는 않습니다.
+
+| 명령 | 용도 |
+| :--- | :--- |
+| `npm run dev` | Vite 개발 서버 |
+| `npm run build` | TypeScript 검사와 배포 빌드 |
+| `npm run lint` | ESLint 검사 |
+| `npm run preview` | 생성한 빌드 미리보기 |
+
+관련 팀 프로젝트는 [capstone-2025](https://github.com/bgw4399/capstone-2025), 설계 설명은 [프로젝트 노트](https://github.com/bgw4399/bgw4399/blob/main/docs/projects/medical-cdm-explorer.md)에서 볼 수 있습니다.
